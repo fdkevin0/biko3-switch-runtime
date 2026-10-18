@@ -85,9 +85,10 @@ cmake --build build-native --parallel 8 --target biko3-preview
 - `runtime/render/window_surface.h`、`bk_renderer_create_window()`：
   渲染器仍自建 VkInstance/device，平台只提供窗口系统实例扩展与
   `VkSurfaceKHR`。
-- `runtime/app/application.c`：桌面构建使用 `BK_DESKTOP_PACING`，只在原版
-  1ms 采样门真正采样时推进一帧。144Hz 下若每帧都复用两帧步长，游戏会以
-  2 倍速运行；该宏不影响 Switch 构建。
+- `runtime/app/application.c`：每张画面推进一次，步长使用原版 `733700`
+  的两帧测量值（约为墙钟 2 倍）。移动与动画由这个步长驱动，所以实际
+  速度是 1 倍；`PERF game/wall≈2.0` 是预期值。不要把步数减半，否则就是
+  文档中记录过的慢动作问题，见 `reports/game-clock-fps.md`。
 - 渲染分辨率跟随 swapchain（当前 1920×1080），游戏内容仍按 4:3 居中，
   左侧黑边显示金色按键说明。
 

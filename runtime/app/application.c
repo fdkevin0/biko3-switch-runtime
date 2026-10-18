@@ -399,21 +399,13 @@ int bk_application_run(int argc, char **argv) {
     uint32_t now_ms = (uint32_t)(uint64_t)(wall * 1000);
     bk_game_clock_poll(&game_clock, now_ms, now_ms);
     BkSceneFrame frame = {
-#ifdef BK_DESKTOP_PACING
-        /* A 144Hz presentation must not replay the two-frame game step every
-         * frame; only advance when the original 1ms gate sampled. */
-        .clock = kind == BK_SCENE_GAME
-                     ? (BkClockFrame){game_clock.sampled && game_clock.seconds > 0
-                                          ? 1u
-                                          : 0u,
-                                      game_clock.seconds, 0}
-                     : bk_clock_advance(&clock, bk_platform_seconds(platform)),
-#else
+        /* The original 733700 step is a two-frame measurement (~2x wall).
+         * Movement and animation are driven by it, so every presentation
+         * advances once with that value; halving the steps is slow motion. */
         .clock = kind == BK_SCENE_GAME
                      ? (BkClockFrame){game_clock.seconds > 0 ? 1u : 0u,
                                       game_clock.seconds, 0}
                      : bk_clock_advance(&clock, bk_platform_seconds(platform)),
-#endif
         .input = pending};
     for (unsigned i = 0; i < frame.clock.steps; i++) {
       BkInput tick_input = bk_input_consume(&pending);

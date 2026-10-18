@@ -1,6 +1,5 @@
 #include "core/game_clock.h"
 void bk_game_clock_poll(BkGameClock *c, uint32_t now, uint32_t sample) {
-  c->sampled = 0;
   c->step_gate.duration = 1;
   if (bk_timer_poll(&c->step_gate, now)) {
     /* FILD(sample) remains unrounded across FST(last_sample) and FSUB.
@@ -12,7 +11,6 @@ void bk_game_clock_poll(BkGameClock *c, uint32_t now, uint32_t sample) {
       seconds = .22f;
     }
     c->seconds = seconds;
-    c->sampled = 1;
   }
   c->fps_gate.duration = 1000;
   if (bk_timer_poll(&c->fps_gate, now)) {
