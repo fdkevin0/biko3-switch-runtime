@@ -35,7 +35,7 @@ cmake --build build-native --parallel 8 --target biko3-preview
 ~/.local/bin/biko3
 ```
 
-或点击桌面上的「尾行3」。启动器会：
+或点击桌面上的「尾行3」，或在 Steam 库中启动「尾行3」。启动器会：
 
 1. 通过 InputPlumber 的 D-Bus 接口把内置手柄切换成 `xbox-elite`
    （标准 uinput Xbox 手柄）。默认的 `deck-uhid` 目标在未绑定
@@ -98,3 +98,13 @@ cmake --build build-native --parallel 8 --target biko3-preview
 - 全屏分辨率取桌面当前模式，运行中不支持切换分辨率；窗口模式用
   `BIKO3_WINDOWED=1`。
 - 桌面构建不包含 Switch 的 NRO/NSP 打包步骤。
+
+## Steam 库
+
+已写入当前用户（`1127854643`）的
+`~/.local/share/Steam/userdata/1127854643/config/shortcuts.vdf`，名称为
+「尾行3」，目标为 `/var/home/armada/.local/bin/biko3`，并带 600×900 封面、
+1920×620 横幅和图标。重新启动 Steam 后即可在库中看到。
+
+Steam 关闭时写入，避免客户端退出时覆盖。若以后 Steam 重建了
+`shortcuts.vdf`，重新添加一次非 Steam 游戏并指向同一个启动器即可。
