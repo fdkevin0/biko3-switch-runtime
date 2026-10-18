@@ -13,6 +13,7 @@
 - **汉化加载优化**：逐资源压缩，完整替换时跳过原资源读取；外挂由 79.1 MB 缩至 37.2 MB，109 项汉化图片、文本和字库的载荷读取量减少约 78%，全部 203 项最终资源不变。需同时更新 NRO 与 `patch.pp`。[优化与验证](reports/patch-loading.md)
 - **原版直装 NSP**：名称「尾行3」、作者 `ILLUSION`、版本 `1.0.78`、TitleID `01094F68D7330000`，内置完整日文 Data，未装入补丁。游戏内照片及进度写入所选用户的 HOS 存档。[打包与存储验证](reports/nsp-1.0.78.md)
 - **汉化与去码更新 NSP**：Patch TitleID `01094F68D7330800`，显示版本 `1.0.79cn`，包含程序及合并补丁，安装在本体之上，共用本体的 HOS 存档。采用 BKTR 差分格式，约 49 MB。[更新包检查](reports/nsp-update-1.0.79.md)
+- **Linux 原生运行 / Steam**：新增 SDL3 + Vulkan 桌面后端，支持全屏、键盘/鼠标/触屏和最多 4 个手柄；`install-steam.sh` 一键写入 Steam 库与封面。Switch 分支、链接库和 NRO 打包未改动。[Linux 说明](docs/linux-native.md)
 
 - **减少渲染重复提交**：缓存同一命令缓冲中的图形状态绑定；固定测试片段中，绑定调用从 2,291,089 次降至 1,247,714 次，减少约 **45.5%**，画面和照片保持一致。[验证记录](reports/vulkan-bindings.md)
 - **减少 NPC 无效遮挡计算**：视野外或已经确认被遮挡后停止继续检查视线三角形，地面高度与行为仍正常更新。[验证记录](reports/npc-occlusion-performance.md)
@@ -46,6 +47,30 @@ NRO 名称为 `biko3-runtime`，作者字段为 `ILLUSION`，版本为 `1.0.79`�
 此前雨天、存档和撞车修复已获用户实机确认；物体表面光影闪烁也已确认修复，该问题在 PC 原版存在。它们不代表最新 NRO 的整体稳定性已经验收。主机 MoltenVK 跨视口原点的微小光栅差异仍保留为[单独诊断](reports/ending-raster-origin.md)，没有通过放宽阈值将其改为通过。
 
 整体设计见 [架构与模块边界](docs/architecture.md)，各阶段当前状态见 [路线与收尾清单](docs/roadmap.md)。`reports/` 保存历次实现与验证记录，旧报告中的“尚未接应用”等描述只代表当时状态。
+
+## Linux 原生运行与 Steam
+
+同一套运行时代码新增了 Linux 桌面后端（SDL3 + Vulkan），直接读取
+`Data/` 与 `patch.pp`，在 aarch64 Linux（如 Armada OS + Adreno/Turnip）上
+原生运行，不经过模拟器或 Proton。支持全屏、键盘/鼠标/触屏和最多 4 个
+SDL 手柄。
+
+一键安装到 Steam（需要先把游戏数据放到
+`~/.local/share/biko3/game`，或用 `BIKO3_GAME` 指定）：
+
+```sh
+./install-steam.sh
+```
+
+脚本会安装运行时与启动器、桌面快捷方式，并写入当前 Steam 用户的
+`shortcuts.vdf` 和封面；缺少 `build-native/biko3` 时会先调用
+`./build-linux.sh`。启动器会把 InputPlumber 的内置手柄切到标准
+`xbox-elite` 目标，避免它只暴露 `/dev/hidraw` 而无法被 SDL 识别。
+
+桌面构建使用 `-DBK_NATIVE_WINDOW=ON`，需要 SDL3、Vulkan 头文件和
+glslangValidator。`BK_SWITCH` 分支、Switch 链接库和 NRO 打包流程保持
+原样；桌面新增文件只在 `BK_NATIVE_WINDOW` 时编译。按键表、构建细节和
+已知限制见 [Linux 原生运行](docs/linux-native.md)。
 
 ## 构建
 

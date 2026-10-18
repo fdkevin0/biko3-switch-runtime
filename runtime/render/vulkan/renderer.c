@@ -327,6 +327,10 @@ static int extension(VkExtensionProperties *p, uint32_t n, const char *name) {
 static BkRenderer *renderer_create(unsigned width, unsigned height,
                                    const BkWindowSurface *window, FILE *log,
                                    char error[256]) {
+#ifdef __SWITCH__
+  /* The Switch always uses NWindow; the desktop surface hook is unused. */
+  (void)window;
+#endif
   BkRenderer *r = calloc(1, sizeof(*r));
   if (!r) {
     snprintf(error, 256, "renderer allocation failed");
