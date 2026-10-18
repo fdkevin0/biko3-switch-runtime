@@ -1,6 +1,7 @@
 #ifndef BK_PLATFORM_H
 #define BK_PLATFORM_H
 #include "core/input.h"
+#include "render/window_surface.h"
 #include <stdio.h>
 typedef struct BkPlatform BkPlatform;
 typedef struct {
@@ -17,6 +18,9 @@ typedef struct {
 BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
                              char error[256]);
 FILE *bk_platform_log(BkPlatform *platform);
+/* Desktop backends return their Vulkan window contract here; Switch and the
+ * offscreen host replay return NULL so the renderer stays headless. */
+const BkWindowSurface *bk_platform_window_surface(BkPlatform *platform);
 int bk_platform_poll(BkPlatform *platform, BkInput *input);
 double bk_platform_seconds(BkPlatform *platform);
 /* Actual monotonic wall time, also during deterministic host input replays. */

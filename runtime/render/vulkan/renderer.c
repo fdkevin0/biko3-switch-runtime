@@ -324,8 +324,9 @@ static int extension(VkExtensionProperties *p, uint32_t n, const char *name) {
   return 0;
 }
 
-BkRenderer *bk_renderer_create(unsigned width, unsigned height, FILE *log,
-                               char error[256]) {
+static BkRenderer *renderer_create(unsigned width, unsigned height,
+                                   const BkWindowSurface *window, FILE *log,
+                                   char error[256]) {
   BkRenderer *r = calloc(1, sizeof(*r));
   if (!r) {
     snprintf(error, 256, "renderer allocation failed");
@@ -347,13 +348,21 @@ BkRenderer *bk_renderer_create(unsigned width, unsigned height, FILE *log,
   if (!extensions)
     goto oom;
   VK_TRY(vkEnumerateInstanceExtensionProperties(NULL, &n, extensions));
-  const char *iext[3];
+  const char *iext[8];
   uint32_t in = 0;
   VkInstanceCreateFlags iflags = 0;
 #ifdef __SWITCH__
   iext[in++] = VK_KHR_SURFACE_EXTENSION_NAME;
   iext[in++] = VK_NN_VI_SURFACE_EXTENSION_NAME;
 #else
+  if (window) {
+    if (window->extension_count > 5) {
+      snprintf(error, 256, "too many window instance extensions");
+      goto fail;
+    }
+    for (unsigned i = 0; i < window->extension_count; ++i)
+      iext[in++] = window->extensions[i];
+  }
   if (extension(extensions, n, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
     iext[in++] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
     iflags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
@@ -383,6 +392,17 @@ BkRenderer *bk_renderer_create(unsigned width, unsigned height, FILE *log,
       .sType = VK_STRUCTURE_TYPE_VI_SURFACE_CREATE_INFO_NN,
       .window = nwindowGetDefault()};
   VK_TRY(vkCreateViSurfaceNN(r->instance, &sci, NULL, &r->surface));
+#else
+  if (window) {
+    void *surface = NULL;
+    if (!window->create(window->userdata, r->instance, &surface, error))
+      goto fail;
+    if (!surface) {
+      snprintf(error, 256, "window surface factory returned no surface");
+      goto fail;
+    }
+    r->surface = (VkSurfaceKHR)surface;
+  }
 #endif
   n = 0;
   VK_TRY(vkEnumeratePhysicalDevices(r->instance, &n, NULL));
@@ -1774,6 +1794,19 @@ int bk_renderer_readback(BkRenderer *r, uint8_t *rgba, size_t n,
   return 1;
 fail:
   return 0;
+}
+BkRenderer *bk_renderer_create(unsigned width, unsigned height, FILE *log,
+                               char error[256]) {
+  return renderer_create(width, height, NULL, log, error);
+}
+BkRenderer *bk_renderer_create_window(const BkWindowSurface *window, FILE *log,
+                                      char error[256]) {
+  if (!window || !window->extensions || !window->extension_count ||
+      !window->create || !window->width || !window->height) {
+    snprintf(error, 256, "invalid window surface");
+    return NULL;
+  }
+  return renderer_create(window->width, window->height, window, log, error);
 }
 void bk_renderer_destroy(BkRenderer *r) {
   if (!r)

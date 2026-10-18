@@ -8,10 +8,15 @@ struct BkPlatform {
   PadState pad;
   int romfs_mounted;
   int save_mounted;
+
 #ifdef BK_SWITCH_FILE_LOG
   FILE *log;
 #endif
 };
+const BkWindowSurface *bk_platform_window_surface(BkPlatform *p) {
+  (void)p;
+  return NULL;
+}
 static uint64_t runtime_origin_ms;
 static int runtime_clock_started;
 int bk_platform_runtime_clock(int timer, uint32_t *out, char error[256]) {

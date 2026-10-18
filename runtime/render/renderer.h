@@ -3,6 +3,7 @@
 #include "core/camera.h"
 #include "core/fog.h"
 #include "core/lighting.h"
+#include "render/window_surface.h"
 #include "resource/assets.h"
 typedef struct BkRenderer BkRenderer;
 typedef struct BkTexture BkTexture;
@@ -146,6 +147,11 @@ int bk_renderer_draw_lit_mesh_projected(
 /* Switch: loaderless Mesa NVK + NWindow. Host: offscreen Vulkan for tests. */
 BkRenderer *bk_renderer_create(unsigned width, unsigned height, FILE *log,
                                char error[256]);
+/* Desktop: present to a native window surface supplied by the platform.
+ * The instance extensions and surface factory come from BkWindowSurface;
+ * the final extent follows the surface and may differ from the hint. */
+BkRenderer *bk_renderer_create_window(const BkWindowSurface *window, FILE *log,
+                                      char error[256]);
 void bk_renderer_destroy(BkRenderer *r);
 BkTexture *bk_texture_create(BkRenderer *r, const BkImage *image,
                              char error[256]);

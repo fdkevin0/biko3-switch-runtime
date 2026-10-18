@@ -175,6 +175,49 @@ static int capture(BkRenderer *renderer, const char *path, char error[256]) {
     snprintf(error, 256, "capture write failed");
   return written && closed;
 }
+/* One-shot desktop diagnostic: capture the presented frame as binary PPM.
+ * Uses the renderer's active-frame readback so it also works with a swapchain
+ * surface (bk_renderer_readback deliberately refuses that case). */
+static int debug_capture(BkRenderer *renderer, const char *path,
+                         char error[256]) {
+  unsigned width = 0, height = 0;
+  bk_renderer_extent(renderer, &width, &height);
+  size_t pixels = (size_t)width * height;
+  uint8_t *rgba = malloc(pixels * 4);
+  uint8_t *rgb = malloc(pixels * 3);
+  FILE *file = NULL;
+  int ok = 0;
+  if (!rgba || !rgb || !width || !height) {
+    snprintf(error, 256, "debug capture allocation failed");
+    goto done;
+  }
+  if (!bk_renderer_capture(renderer, rgba, pixels * 4, error))
+    goto done;
+  for (size_t i = 0; i < pixels; ++i) {
+    rgb[i * 3 + 0] = rgba[i * 4 + 0];
+    rgb[i * 3 + 1] = rgba[i * 4 + 1];
+    rgb[i * 3 + 2] = rgba[i * 4 + 2];
+  }
+  file = fopen(path, "wb");
+  if (!file) {
+    snprintf(error, 256, "cannot open debug capture");
+    goto done;
+  }
+  if (fprintf(file, "P6\n%u %u\n255\n", width, height) < 0 ||
+      fwrite(rgb, 1, pixels * 3, file) != pixels * 3 || fclose(file)) {
+    file = NULL;
+    snprintf(error, 256, "debug capture write failed");
+    goto done;
+  }
+  file = NULL;
+  ok = 1;
+done:
+  if (file)
+    fclose(file);
+  free(rgba);
+  free(rgb);
+  return ok;
+}
 /* Explicit offscreen host sink. Native Switch always uses audout. */
 static int offline_submit(void *context, const int16_t *samples, size_t frames,
                           char error[256]) {
@@ -246,7 +289,9 @@ int bk_application_run(int argc, char **argv) {
           (int)sizeof(patch_path) ||
       !bk_resources_load_patch(resources, patch_path, error))
     goto done;
-  renderer = bk_renderer_create(1280, 720, log, error);
+  const BkWindowSurface *window = bk_platform_window_surface(platform);
+  renderer = window ? bk_renderer_create_window(window, log, error)
+                    : bk_renderer_create(1280, 720, log, error);
   if (!renderer)
     goto done;
   BkAudioSink sink;
@@ -354,10 +399,21 @@ int bk_application_run(int argc, char **argv) {
     uint32_t now_ms = (uint32_t)(uint64_t)(wall * 1000);
     bk_game_clock_poll(&game_clock, now_ms, now_ms);
     BkSceneFrame frame = {
+#ifdef BK_DESKTOP_PACING
+        /* A 144Hz presentation must not replay the two-frame game step every
+         * frame; only advance when the original 1ms gate sampled. */
+        .clock = kind == BK_SCENE_GAME
+                     ? (BkClockFrame){game_clock.sampled && game_clock.seconds > 0
+                                          ? 1u
+                                          : 0u,
+                                      game_clock.seconds, 0}
+                     : bk_clock_advance(&clock, bk_platform_seconds(platform)),
+#else
         .clock = kind == BK_SCENE_GAME
                      ? (BkClockFrame){game_clock.seconds > 0 ? 1u : 0u,
                                       game_clock.seconds, 0}
                      : bk_clock_advance(&clock, bk_platform_seconds(platform)),
+#endif
         .input = pending};
     for (unsigned i = 0; i < frame.clock.steps; i++) {
       BkInput tick_input = bk_input_consume(&pending);
@@ -437,6 +493,12 @@ int bk_application_run(int argc, char **argv) {
                                   bk_play_session_flow(scene)->current == 1,
                               error)))
       goto done;
+    {
+      const char *debug_path = getenv("BIKO3_CAPTURE");
+      if (debug_path && *debug_path && frames == 120 &&
+          !debug_capture(renderer, debug_path, error))
+        goto done;
+    }
     double after_draw = bk_platform_performance_seconds(platform);
     if (!bk_renderer_end(renderer, error))
       goto done;

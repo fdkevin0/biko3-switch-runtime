@@ -1,4 +1,8 @@
 #include "platform/platform.h"
+const BkWindowSurface *bk_platform_window_surface(BkPlatform *p) {
+  (void)p;
+  return NULL;
+}
 int bk_platform_commit_save(const char *path, char error[256]) {
   (void)path;
   (void)error;
