@@ -121,8 +121,8 @@ Vulkan swapchain/帧缓冲。`F1` 切换 FPS，`F2` 切换操作说明；窗口/
 | --- | --- |
 | `BIKO3_GAME` | 游戏目录（包含 `Data/`）；也可作为第一个命令行参数传入 |
 | `BIKO3_DATA_DIR` | 覆盖用户数据根目录（save/captures/album 的父目录） |
-| `BIKO3_WINDOWED=1` | 强制窗口模式（覆盖 `settings.cfg`） |
-| `BIKO3_FULLSCREEN=1` | 强制全屏（覆盖 `settings.cfg`） |
+| `BIKO3_WINDOWED=1` | 仅本次启动强制窗口模式，不写回 `settings.cfg`；设置永久值时改配置 |
+| `BIKO3_FULLSCREEN=1` | 仅本次启动强制全屏，不写回 `settings.cfg`；与上项同时存在时全屏优先 |
 | `BK_SHOW_FPS=1` | 启动时显示原版 FPS |
 | `F1` / `F2` | 切换 FPS / 操作说明（自动保存） |
 | `F11` / `Cmd+Ctrl+F` | 运行时切换全屏/窗口 |

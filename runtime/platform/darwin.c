@@ -49,6 +49,7 @@ struct BkPlatform {
   int quit;
   int audio_ready;
   int focused;
+  int window_override; /* BIKO3_WINDOWED/FULLSCREEN is for this launch only. */
   int resize_pending;
   unsigned pending_width, pending_height;
   unsigned debug_pointer_events;
@@ -264,6 +265,7 @@ static void toggle_fullscreen(BkPlatform *p) {
   }
   SDL_SyncWindow(p->window);
   update_drawable(p);
+  p->window_override = 0; /* An explicit F11 choice becomes the saved state. */
   save_window_settings(p);
   fprintf(stderr, "Display: fullscreen %s\n",
           p->settings.windowed ? "off" : "on");
@@ -522,10 +524,14 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
     bk_settings_defaults(&p->settings);
     fprintf(stderr, "Settings: %s; using defaults\n", settings_error);
   }
-  if (getenv("BIKO3_WINDOWED"))
+  if (getenv("BIKO3_WINDOWED")) {
     p->settings.windowed = 1;
-  if (getenv("BIKO3_FULLSCREEN"))
+    p->window_override = 1;
+  }
+  if (getenv("BIKO3_FULLSCREEN")) {
     p->settings.windowed = 0;
+    p->window_override = 1;
+  }
   configure_vulkan_icd();
   if (!SDL_Vulkan_LoadLibrary(NULL)) {
     snprintf(error, 256, "SDL_Vulkan_LoadLibrary: %s", SDL_GetError());
@@ -851,7 +857,7 @@ void bk_platform_report_error(BkPlatform *p, const char *error) {
 }
 
 static void save_window_settings(BkPlatform *p) {
-  if (!p || !p->root[0])
+  if (!p || !p->root[0] || p->window_override)
     return;
   BkSettings settings;
   char error[256] = {0};
