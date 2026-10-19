@@ -98,11 +98,29 @@ BIKO3_WINDOWED=1 ./build-macos/biko3
 | `BIKO3_DATA_DIR` | 覆盖用户数据根目录（save/captures/album 的父目录） |
 | `BIKO3_WINDOWED=1` | 1280×720 窗口模式 |
 | `BK_SHOW_FPS=1` | 启动时显示原版 FPS |
-| `BIKO3_INPUT_DEBUG=1` | 打印按键边沿 |
+| `BIKO3_SHOW_SYSTEM_CURSOR=1` | 保留 macOS 系统箭头（默认隐藏，游戏绘制自己的光标） |
+| `BIKO3_INPUT_DEBUG=1` | 打印前 12 次鼠标事件的窗口/像素尺寸与缩放结果 |
 | `VK_ICD_FILENAMES` | 指定 MoltenVK ICD 清单；通常平台层会自动探测 Homebrew 路径 |
 
 按键与 Linux 桌面一致（键盘/鼠标/最多 4 个 SDL 手柄），见
 [Linux 原生运行](linux-native.md) 的按键表。
+
+### 鼠标与 Retina 坐标
+
+SDL3 的鼠标事件使用**窗口坐标（points）**，而游戏内部指针/视口使用
+**渲染像素**。在 2x Retina 屏幕上，1280×720 窗口的实际 drawable 是
+2560×1440；`darwin.c` 用 `SDL_GetWindowSize()` 与当前 drawable 像素尺寸的
+比例把事件换算到渲染像素，避免光标只覆盖屏幕一半或整体偏移。启动日志会
+打印：
+
+```text
+Input: window 1280x720 points, drawable 2560x1440 pixels, pointer scale 2.00x/2.00x
+```
+
+游戏默认隐藏 macOS 系统箭头（原版通过 `ShowCursor(FALSE)` 隐藏并绘制
+自己的菜单光标）。保留系统箭头可用于排查：
+`BIKO3_SHOW_SYSTEM_CURSOR=1`。若仍有偏移，用 `BIKO3_INPUT_DEBUG=1` 运行
+并把前几行 `Pointer:` 日志发回即可定位是窗口比例还是渲染视口问题。
 
 ## 打包 .app
 

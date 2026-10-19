@@ -41,6 +41,30 @@ macOS 的 Cocoa/Metal 路径还无法在本机验证，但平台代码与构建�
 这些证明平台层能编译、链接、初始化窗口/Vulkan/音频并加载真实数据；
 **不能替代 macOS 真机的 Cocoa/Metal 验证**。
 
+## 2026-10-19 指针修复（Mac 反馈）
+
+Mac 真机运行后报告“鼠标位置与 macOS 不同步”。原因与修复：
+
+- SDL3 的鼠标事件/`SDL_GetMouseState()` 返回窗口坐标（points），而游戏
+  `BkInput.pointer_*`/菜单视口使用渲染器像素（`bk_camera_fit` 基于
+  `bk_renderer_extent`）。原实现用 `SDL_GetWindowSizeInPixels()` 作为
+  “窗口尺寸”去缩放，等价于 scale=1；在 2x Retina 上指针只能覆盖一半屏幕。
+- `darwin.c` 新增 `pointer_scale()`：用 `SDL_GetWindowSize()`（points）和
+  平台启动时的 drawable 像素尺寸（`p->width/height`，与 Vulkan surface
+  extent 一致）计算 x/y 缩放；鼠标移动事件与 `SDL_GetMouseState()` 轮询
+  共用该比例。
+- 默认调用 `SDL_HideCursor()`，与 Windows 原版 `ShowCursor(FALSE)` 一致，
+  避免 macOS 箭头和游戏自绘菜单光标同时出现；`BIKO3_SHOW_SYSTEM_CURSOR=1`
+  可恢复系统箭头，`BIKO3_INPUT_DEBUG=1` 打印前 12 次鼠标事件的
+  window/drawable/scale/target。
+- 启动日志增加 `Input: window ... points, drawable ... pixels, pointer
+  scale ...`，便于区分 Retina 缩放和 4:3 视口偏移。
+
+验证：Linux 冒烟测试（Xvfb + lavapipe，scale=1）重新构建/启动/渲染通过；
+本机无法模拟 macOS Retina，需 Mac 真机按 `docs/macos-native.md` 的
+`BIKO3_WINDOWED=1` 与 `BIKO3_INPUT_DEBUG=1` 确认。Linux 后端也有相同的
+point/pixel 假设（HiDPI Linux），本提交未改动它。
+
 ## 未验证 / 已知限制
 
 - macOS 真机上的 MoltenVK 设备创建、swapchain、Retina、全屏 Space、

@@ -46,6 +46,7 @@ struct BkPlatform {
   int touch_active;
   int quit;
   int audio_ready;
+  unsigned debug_pointer_events;
   char root[PATH_MAX];
   char game[PATH_MAX];
 };
@@ -109,6 +110,22 @@ static int create_surface(void *userdata, void *instance, void **surface,
   }
   *surface = (void *)native;
   return 1;
+}
+
+/* SDL mouse events and SDL_GetMouseState report window coordinates (points
+ * on Retina displays), while the game's viewport/pointer space is the
+ * renderer extent in pixels. Scale through the current logical window size so
+ * a 2x display does not halve the pointer's reachable area. */
+static void pointer_scale(const BkPlatform *p, float *sx, float *sy) {
+  int logical_w = 0, logical_h = 0;
+  *sx = 1.0f;
+  *sy = 1.0f;
+  if (!p || !p->window ||
+      !SDL_GetWindowSize(p->window, &logical_w, &logical_h) ||
+      logical_w <= 0 || logical_h <= 0)
+    return;
+  *sx = (float)p->width / (float)logical_w;
+  *sy = (float)p->height / (float)logical_h;
 }
 
 static void add_gamepad(BkPlatform *p, SDL_JoystickID id) {
@@ -211,13 +228,22 @@ static void poll_events(BkPlatform *p) {
       remove_gamepad(p, event.gdevice.which);
       break;
     case SDL_EVENT_MOUSE_MOTION: {
-      int w = 1, h = 1;
-      SDL_GetWindowSizeInPixels(p->window, &w, &h);
-      float sx = (float)p->width / (float)w;
-      float sy = (float)p->height / (float)h;
+      float sx, sy;
+      pointer_scale(p, &sx, &sy);
       p->mouse_x = event.motion.x * sx;
       p->mouse_y = event.motion.y * sy;
       p->mouse_moved = 1;
+      if (getenv("BIKO3_INPUT_DEBUG") && p->debug_pointer_events < 12) {
+        int logical_w = 0, logical_h = 0, drawable_w = 0, drawable_h = 0;
+        SDL_GetWindowSize(p->window, &logical_w, &logical_h);
+        SDL_GetWindowSizeInPixels(p->window, &drawable_w, &drawable_h);
+        fprintf(stderr,
+                "Pointer: event=(%.1f,%.1f) window=%dx%d drawable=%dx%d "
+                "scale=%.2fx/%.2fx target=(%.1f,%.1f)\n",
+                event.motion.x, event.motion.y, logical_w, logical_h,
+                drawable_w, drawable_h, sx, sy, p->mouse_x, p->mouse_y);
+        ++p->debug_pointer_events;
+      }
       break;
     }
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -366,6 +392,11 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
     snprintf(error, 256, "SDL_CreateWindow: %s", SDL_GetError());
     goto failed;
   }
+  /* The original build uses ShowCursor(FALSE) and draws its own pointer for
+   * menus/pause. Keep the macOS arrow from sitting beside that software cursor.
+   * BIKO3_SHOW_SYSTEM_CURSOR=1 restores it for input debugging. */
+  if (!getenv("BIKO3_SHOW_SYSTEM_CURSOR"))
+    SDL_HideCursor();
   if (!windowed) {
     /* Cocoa may ignore the create-time fullscreen flag; enter the desktop's
      * fullscreen Space explicitly and hide the title bar. */
@@ -384,6 +415,16 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
   p->height = (unsigned)pixel_h;
   p->surface.width = p->width;
   p->surface.height = p->height;
+  {
+    int logical_w = 0, logical_h = 0;
+    if (SDL_GetWindowSize(p->window, &logical_w, &logical_h))
+      fprintf(stderr,
+              "Input: window %dx%d points, drawable %ux%u pixels, "
+              "pointer scale %.2fx/%.2fx\n",
+              logical_w, logical_h, p->width, p->height,
+              logical_w > 0 ? (double)p->width / logical_w : 1.0,
+              logical_h > 0 ? (double)p->height / logical_h : 1.0);
+  }
   open_gamepads(p);
   p->audio_ready = SDL_InitSubSystem(SDL_INIT_AUDIO);
   if (!p->audio_ready)
@@ -490,10 +531,8 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
 
   float mx = 0, my = 0;
   SDL_MouseButtonFlags mouse = SDL_GetMouseState(&mx, &my);
-  int window_w = 1, window_h = 1;
-  SDL_GetWindowSizeInPixels(p->window, &window_w, &window_h);
-  float sx = (float)p->width / (float)(window_w > 0 ? window_w : 1);
-  float sy = (float)p->height / (float)(window_h > 0 ? window_h : 1);
+  float sx, sy;
+  pointer_scale(p, &sx, &sy);
   if (mouse & (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK)) {
     p->mouse_x = mx * sx;
     p->mouse_y = my * sy;
