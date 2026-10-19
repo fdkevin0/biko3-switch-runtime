@@ -13,7 +13,6 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT/'tools'))
 from bk3_assets import Archive
-from PIL import Image
 
 
 def main():
@@ -21,13 +20,15 @@ def main():
     p.add_argument('data', type=Path)
     p.add_argument('--output', type=Path, default=ROOT/'local/audit.json')
     args = p.parse_args()
+    archives = sorted(args.data.glob('*.pp'))
+    if not archives: p.error('data directory contains no PP archives: '+str(args.data))
     lib = ctypes.CDLL(str(Path(os.environ.get('BK3_BUILD_DIR', ROOT/'build')) / ('libassets-test.dylib' if sys.platform == 'darwin' else 'libassets-test.so')))
     class CImage(ctypes.Structure):
         _fields_ = [('width', ctypes.c_uint32), ('height', ctypes.c_uint32), ('rgba', ctypes.c_void_p)]
     lib.bk_image_decode.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.POINTER(CImage), ctypes.c_void_p]
     lib.bk_image_free.argtypes = [ctypes.POINTER(CImage)]
     results, total, images = [], 0, 0
-    for path in sorted(args.data.glob('*.pp')):
+    for path in archives:
         archive = Archive(path)
         native = subprocess.check_output([str(Path(os.environ.get('BK3_BUILD_DIR', ROOT/'build'))/'asset-probe'), str(path)]).decode('cp932')
         expected = ''.join(f'{e.offset}\t{e.size}\t{e.name}\n' for e in archive.entries)
@@ -44,6 +45,7 @@ def main():
                 raise ValueError(f'{path}/{entry.name}: {error.value!r}')
             try:
                 pixels = ctypes.string_at(im.rgba, im.width*im.height*4)
+                from PIL import Image
                 with Image.open(io.BytesIO(data)) as reference:
                     if reference.size != (im.width, im.height) or reference.convert('RGBA').tobytes() != pixels:
                         raise ValueError(f'Pillow/native pixel mismatch: {path}/{entry.name}')
@@ -52,10 +54,12 @@ def main():
             images += 1
         total += len(archive.entries)
         with path.open('rb') as stream:
-            sha = hashlib.file_digest(stream, 'sha256').hexdigest()
-        results.append({'file': path.name, 'size': path.stat().st_size, 'sha256': sha,
+            sha = hashlib.sha256()
+            for block in iter(lambda: stream.read(1024*1024), b''): sha.update(block)
+        results.append({'file': path.name, 'size': path.stat().st_size, 'sha256': sha.hexdigest(),
                         'entries': len(archive.entries),
                         'extensions': dict(Counter(Path(e.name).suffix.lower() for e in archive.entries))})
+    if not total: p.error('PP archives contain no entries')
     result = {'archives': results, 'entries': total, 'images_pixel_exact': images,
               'checks': ['all C/Python indexes equal', 'all native image decodes pass', 'all image pixels equal Pillow']}
     args.output.parent.mkdir(parents=True, exist_ok=True)

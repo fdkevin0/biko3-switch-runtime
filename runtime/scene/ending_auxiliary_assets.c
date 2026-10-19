@@ -401,14 +401,6 @@ uint32_t bk_ending_auxiliary_assets_root(const BkEndingAuxiliaryAssets *a,
   const AuxiliaryActor *p = actor == 0 ? &a->primary : &a->background;
   return p->pose ? bk_actor_forest_node(a->forest, actor, p->root) : BK_FRAME_NONE;
 }
-const char *
-bk_ending_auxiliary_assets_model_name(const BkEndingAuxiliaryAssets *a,
-                                       unsigned actor) {
-  if (!a || (actor != 0 && actor != 3))
-    return NULL;
-  const AuxiliaryActor *p = actor == 0 ? &a->primary : &a->background;
-  return p->clips ? bk_clip_model_name(p->clips) : NULL;
-}
 BkFaceAssets *bk_ending_auxiliary_assets_face(BkEndingAuxiliaryAssets *a) {
   return a ? a->face : NULL;
 }

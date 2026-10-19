@@ -66,7 +66,10 @@ int main(int argc, char **argv) {
   renderer = bk_renderer_create(WIDTH, HEIGHT, stderr, error);
   if (!renderer)
     goto done;
-  BkSceneServices services = {store, renderer, stderr, audio, NULL, NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = renderer,
+                              .log = stderr,
+                              .audio = audio};
   spoken = bk_scene_create(BK_SCENE_ACTOR_PREVIEW, &services, error);
   services.audio = NULL;
   silent = bk_scene_create(BK_SCENE_ACTOR_PREVIEW, &services, error);

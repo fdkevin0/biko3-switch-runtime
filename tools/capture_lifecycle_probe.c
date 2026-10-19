@@ -76,7 +76,10 @@ int main(int argc, char **argv) {
   BkAudioSink sink = {&submitted, 48000, 240, 960, submit_pcm, poll_pcm};
   CHECK(audio = bk_audio_create(&sink, error));
   CHECK(files = bk_capture_files_create(argv[2], error));
-  BkSceneServices services = {store, renderer, NULL, audio, files, NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = renderer,
+                              .audio = audio,
+                              .capture_files = files};
   CHECK(scene = bk_play_session_create_development(&services, NULL, error));
   CHECK(present_frame(scene, renderer, audio, error));
   PlaySession *s = bk_scene_custom_context(scene);

@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 import subprocess
 import tempfile
 
@@ -79,7 +80,7 @@ def main():
             if not data.get('passed') or data.get('exe_sha256') != report['exe_sha256'] or text.count(marker) != 1:
                 raise RuntimeError(mode+' omitted matching terminal pass')
             report['checks'].append(dict(mode=mode, result=data,
-                library_sha256=digest(ROOT/folder/'libmodel-test.dylib'), python_sha256=digest(python.resolve())))
+                library_sha256=digest(ROOT/folder/('libmodel-test.dylib' if sys.platform == 'darwin' else 'libmodel-test.so')), python_sha256=digest(python.resolve())))
             if args.suite == 'inventory':
                 print(f"PASS {mode}: {data['cases']} directories, {data['names']} names, "
                       f"{data['rescans']} rescans", flush=True)

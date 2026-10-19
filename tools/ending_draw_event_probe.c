@@ -101,7 +101,9 @@ static int profile(BkRenderer *renderer, BkResourceStore *store,
   BkScene *scene = NULL;
   BkRenderStats baseline = bk_renderer_stats(renderer);
   CHECK(audio = bk_audio_create(&output, e));
-  BkSceneServices services = {store, renderer, NULL, audio, NULL, NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = renderer,
+                              .audio = audio};
   CHECK(scene = bk_ending_normal_scene_create(&services, group, variant, e));
   EndingNormalScene *s = bk_scene_custom_context(scene);
   CHECK(bk_renderer_begin(renderer, e) &&

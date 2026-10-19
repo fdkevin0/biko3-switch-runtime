@@ -313,7 +313,7 @@ int bk_application_run(int argc, char **argv) {
           settings_error[0] ? " fallback" : "", settings.windowed,
           settings.width, settings.height, show_help, show_fps,
           show_dev_overlay, fps_cap);
-#ifdef __APPLE__
+#ifdef BK_NATIVE_DARWIN
   bk_platform_set_ui_state(platform, show_fps, show_help, fps_cap);
 #endif
   resources = bk_resources_create(error);
@@ -415,7 +415,7 @@ int bk_application_run(int argc, char **argv) {
     fprintf(log, "Audio pump: independent thread, priority0x2b,2ms poll; "
                  "cache-flushed PCM.\n");
   while (bk_platform_poll(platform, &sample)) {
-#ifdef __APPLE__
+#ifdef BK_NATIVE_DARWIN
     unsigned resize_width = 0, resize_height = 0;
     if (bk_platform_take_resize(platform, &resize_width, &resize_height)) {
       if (!bk_renderer_resize(renderer, resize_width, resize_height, error) ||
@@ -454,7 +454,7 @@ int bk_application_run(int argc, char **argv) {
       show_fps = !show_fps;
       save_ui_settings(config.capture_root, log, show_fps, show_help,
                        show_dev_overlay);
-#ifdef __APPLE__
+#ifdef BK_NATIVE_DARWIN
       bk_platform_set_ui_state(platform, show_fps, show_help, fps_cap);
 #endif
       fprintf(log, "Original FPS counter: %s\n", show_fps ? "on" : "off");
@@ -463,7 +463,7 @@ int bk_application_run(int argc, char **argv) {
       show_help = !show_help;
       save_ui_settings(config.capture_root, log, show_fps, show_help,
                        show_dev_overlay);
-#ifdef __APPLE__
+#ifdef BK_NATIVE_DARWIN
       bk_platform_set_ui_state(platform, show_fps, show_help, fps_cap);
 #endif
       fprintf(log, "Control help: %s\n", show_help ? "on" : "off");
@@ -592,7 +592,7 @@ int bk_application_run(int argc, char **argv) {
         !bk_ending_normal_scene_after_present(scene, error))
       goto done;
     double frame_end = bk_platform_performance_seconds(platform);
-#ifdef __APPLE__
+#ifdef BK_NATIVE_DARWIN
     if (fps_cap > 0) {
       double budget = 1.0 / fps_cap;
       double elapsed = frame_end - frame_start;

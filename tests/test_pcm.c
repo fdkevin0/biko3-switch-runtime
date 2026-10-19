@@ -44,29 +44,36 @@ int main(void) {
          bk_pcm_frames(p) == 2);
   const int16_t *v = bk_pcm_samples(p);
   assert(v[0] == 32767 && v[1] == -32768 && v[2] == -1 && v[3] == 0);
-  uint64_t duration;
-  assert(bk_pcm_duration(p, 44180, &duration) && duration == 4);
+  BkPcmPhase phase;
+  assert(bk_pcm_phase_advance(p, 44180, 22090, 3, 0, (BkPcmPhase){0}, &phase) &&
+         phase.frame == 1 && phase.fraction == 22090);
   float whole[12] = {0}, split[12] = {0};
-  assert(bk_pcm_mix(p, 44180, 0, 0, 0, 0, whole, 6, error));
+  assert(bk_pcm_mix_phase(p, 44180, 22090, (BkPcmPhase){0}, 0, 0, 0, whole, 6,
+                          error));
   assert(whole[0] == 32767 && whole[1] == -32768 && whole[2] == 16383 &&
          whole[3] == -16384 && whole[4] == -1 && whole[6] == -1 &&
          whole[8] == 0);
-  assert(bk_pcm_mix(p, 44180, 0, 0, 0, 0, split, 2, error));
-  assert(bk_pcm_mix(p, 44180, 2, 0, 0, 0, split + 4, 4, error));
+  assert(bk_pcm_mix_phase(p, 44180, 22090, (BkPcmPhase){0}, 0, 0, 0, split, 2,
+                          error));
+  assert(bk_pcm_phase_advance(p, 44180, 22090, 2, 0, (BkPcmPhase){0}, &phase));
+  assert(
+      bk_pcm_mix_phase(p, 44180, 22090, phase, 0, 0, 0, split + 4, 4, error));
   assert(!memcmp(whole, split, sizeof(whole)));
   memset(split, 0, sizeof(split));
-  assert(bk_pcm_mix(p, 44180, 3, 1, 0, 10000, split, 6, error));
+  assert(bk_pcm_phase_advance(p, 44180, 22090, 3, 1, (BkPcmPhase){0}, &phase));
+  assert(
+      bk_pcm_mix_phase(p, 44180, 22090, phase, 1, 0, 10000, split, 6, error));
   assert(split[0] == 0 && split[1] == -16384 && split[2] == 0 &&
          split[3] == -32768);
-  size_t position = 7;
-  int ended = 7;
-  assert(bk_pcm_position(p, 44180, 4, 0, &position, &ended) && position == 2 &&
-         ended);
-  assert(bk_pcm_position(p, 44180, UINT64_MAX, 1, &position, &ended) &&
-         position == 1 && !ended);
+  assert(bk_pcm_phase_advance(p, 44180, 22090, 4, 0, (BkPcmPhase){0}, &phase) &&
+         phase.frame == 2 && !phase.fraction);
+  assert(bk_pcm_phase_advance(p, 44180, 22090, UINT64_MAX, 1, (BkPcmPhase){0},
+                              &phase) &&
+         phase.frame == 1 && phase.fraction == 22090);
   float preserved[12];
   memcpy(preserved, split, sizeof(split));
-  assert(!bk_pcm_mix(p, 44180, 0, 0, 1, 0, split, 6, error));
+  assert(!bk_pcm_mix_phase(p, 44180, 22090, (BkPcmPhase){0}, 0, 1, 0, split, 6,
+                           error));
   assert(!memcmp(preserved, split, sizeof(split)));
   int16_t quantized[12];
   assert(bk_pcm_quantize(whole, quantized, 6));

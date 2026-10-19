@@ -62,7 +62,6 @@ int bk_ending_auxiliary_assets_material_alpha(BkEndingAuxiliaryAssets *,
                                               char error[256]);
 const BkMorphGroup *bk_ending_auxiliary_assets_morph(const BkEndingAuxiliaryAssets *, unsigned actor);
 uint32_t bk_ending_auxiliary_assets_root(const BkEndingAuxiliaryAssets *, unsigned actor);
-const char *bk_ending_auxiliary_assets_model_name(const BkEndingAuxiliaryAssets *, unsigned actor);
 BkFaceAssets *bk_ending_auxiliary_assets_face(BkEndingAuxiliaryAssets *);
 BkFaceState *bk_ending_auxiliary_assets_face_state(BkEndingAuxiliaryAssets *);
 BkEyeAssets *bk_ending_auxiliary_assets_eyes(BkEndingAuxiliaryAssets *);

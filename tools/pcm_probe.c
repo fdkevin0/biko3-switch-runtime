@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 int main(int argc, char **argv) {
   if (argc < 2) {
     fprintf(stderr, "usage: pcm-probe PACK...\n");
@@ -18,7 +19,7 @@ int main(int argc, char **argv) {
     for (uint32_t j = 0; j < a.count; j++) {
       const BkEntry *e = &a.entries[j];
       size_t length = strlen(e->name);
-      if (length < 4 || strcmp(e->name + length - 4, ".wav"))
+      if (length < 4 || strcasecmp(e->name + length - 4, ".wav"))
         continue;
       uint8_t *bytes = NULL;
       if (!bk_archive_read(&a, e, &bytes, error)) {
@@ -46,6 +47,10 @@ int main(int argc, char **argv) {
       bk_pcm_destroy(pcm);
     }
     bk_archive_close(&a);
+  }
+  if (!files) {
+    snprintf(error, sizeof(error), "no PCM assets");
+    goto fail;
   }
   printf("PASS PCM %u files, %" PRIu64
          " sample frames, owned samples hash %016" PRIx64 "\n",

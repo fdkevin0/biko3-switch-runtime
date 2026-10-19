@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-19",
+  "base_commit": "d32a7ab",
+  "environment": {
+    "system": "macOS arm64",
+    "compiler": "AppleClang 21.0.0",
+    "test_python": "3.9.6",
+    "gpu": "Apple M1 Pro / MoltenVK 1.4.2",
+    "directories": "build/audit, build/audit-asan, build/audit-gpu, build/audit-native"
+  },
+  "scope": {
+    "method": [
+      "Three subagents independently reviewed Python drivers/oracles, runtime references, and C tests/probes; primary agent ran clean full builds and regression suites.",
+      "Searched declarations, direct callers, dynamic ctypes/getattr names, CMake registration and documented/manual probe uses before removing code.",
+      "108 existing C test source files are referenced by CMake; assert-based tests explicitly retain assertions with NDEBUG. Standalone oracles and deliberately failing legacy GPU controls are retained."
+    ],
+    "boundaries": "Original assets, EXEs, keys, patches and existing user saves were not modified. Generated fixtures and build output remain in ignored build/ or temporary directories."
+  },
+  "removed": [
+    {
+      "symbols": [
+        "bk_clock_present"
+      ],
+      "proof": "Only declaration, definition and dedicated test_core.c block referenced it. application.c uses bk_game_clock_poll for gameplay and bk_clock_advance for diagnostic scenes. The old wall-time rule in reports/switch-performance.md predates reports/game-clock-fps.md.",
+      "coverage": "Removed only its dedicated wall-presentation assertions; retained fixed-step timing, native two-frame timing across 15/20/30/60/120/240 Hz, invalid/backwards time and input-edge checks."
+    },
+    {
+      "symbols": [
+        "bk_pcm_duration",
+        "bk_pcm_position",
+        "bk_pcm_mix"
+      ],
+      "proof": "Only tests/test_pcm.c and tests/test_pcm_mix.py called these elapsed-time adapters; runtime/media/audio.c already uses bk_pcm_phase_advance and bk_pcm_mix_phase. Removed duplicate position arithmetic.",
+      "coverage": "Migrated tests to the production phase API, retaining independent Python integer phase/sample expectations, chunk consistency, UINT64 clocks, loop/end boundaries, gain/pan, invalid-input atomicity and 4000 piecewise-frequency cases."
+    },
+    {
+      "symbols": [
+        "bk_ending_auxiliary_assets_model_name"
+      ],
+      "proof": "Declaration and definition only, including searches for dynamic model_name suffixes/getattr users; the separate secondary-assets getter remains in use.",
+      "coverage": "No test depended on this unused getter; auxiliary asset/root/pose/face and original-oracle coverage retained."
+    }
+  ],
+  "retained": [
+    "All Python original-instruction oracles, including manual/dynamically selected suites.",
+    "Test-only strict CPU animation, matrix, collision and save codecs with independent oracle value.",
+    "Development inspection scenes and camera helpers reachable through application diagnostics.",
+    "ftt_font_render.c: manual build/use documented in reports/chinese-patch.md despite absence from CMake.",
+    "Legacy composed-MVP depth controls intentionally demonstrate earlier rendering failures."
+  ],
+  "fixed": [
+    {
+      "issue": "ASan target allowlist drift",
+      "evidence": "Nine portable registered test executables plus ARM64 math were missing from test-host.sh's initial hand-maintained ASan build list.",
+      "change": "Build all default CPU targets before CTest; remove redundant later partial build. Set UBSan halt_on_error=1 and disable LeakSanitizer consistently."
+    },
+    {
+      "issue": "macOS settings test did not compile",
+      "evidence": "Fresh RelWithDebInfo build failed: mkdtemp undeclared with _POSIX_C_SOURCE alone.",
+      "change": "Add _DARWIN_C_SOURCE for test-settings on Apple, following test-store's existing convention; retain settings tests."
+    },
+    {
+      "issue": "Stale scene service initializers broke GPU/probe builds",
+      "evidence": "-Werror=missing-field-initializers for new show_dev_overlay; both direct and nested initializers affected.",
+      "change": "Convert 33 tools initializers to designated fields, preserving original service values and zero defaults."
+    },
+    {
+      "issue": "macOS offscreen application could not link",
+      "evidence": "application.c guarded five native window/menu call blocks with __APPLE__, but host.c intentionally implements an offscreen backend.",
+      "change": "Define BK_NATIVE_DARWIN for bk_app only when APPLE AND BK_NATIVE_WINDOW; retain native menu/focus/resize/cap behavior without introducing host stubs."
+    },
+    {
+      "issue": "Empty audits overwrote evidence with successful zero-work reports",
+      "evidence": "audit_game.py, audit_models.py and audit_pcm.py accepted missing/empty input or no target payload.",
+      "change": "Reject inputs with no PP archives before loading libraries; reject zero archive entries/models/WAVs before writing reports. Regression checks preserve existing report contents."
+    },
+    {
+      "issue": "PCM probe accepted zero files and ignored uppercase WAV",
+      "evidence": "A synthetic legal empty PP returned PASS PCM 0 files; '.WAV' was ignored by strcmp.",
+      "change": "Reject zero decoded WAVs and match extension case-insensitively; synthetic empty and TONE.WAV fixtures test real native execution."
+    },
+    {
+      "issue": "Linux validation drivers hashed nonexistent macOS library names",
+      "evidence": "Five current check drivers hardcoded libmodel-test.dylib.",
+      "change": "Follow existing platform-dependent library naming. Isolated harness reproduces all five original Linux failures and checks ten corrected macOS/Linux paths; this is not native Linux execution."
+    },
+    {
+      "issue": "Python 3.9 audit hash API failure",
+      "evidence": "A valid synthetic PP reached hashlib.file_digest, unavailable in system Python 3.9.6.",
+      "change": "Use streaming hashlib.sha256 while preserving bounded-memory hashing. Positive audit test checks the resulting digest and native archive index."
+    },
+    {
+      "issue": "Meaningful GPU probes were outside CTest",
+      "evidence": "The initial 12-test GPU CTest run passed while test-host.sh's extra depth-clear probe failed on the same GPU.",
+      "change": "Register texture-update, GPU transfer, depth-clear and actor-view probes with CTest, and remove duplicate direct invocations from test-host.sh."
+    },
+    {
+      "issue": "Depth-clear probe caught a real rendering regression",
+      "evidence": "The unchanged pixel assertion failed at frame 2, x=4, y=3 with depth=0.5: a green stamp rendered transparent black on Apple M1 Pro / MoltenVK 1.4.2. Rebinding only the pipeline did not repair it; rebinding descriptors did. Removing the fix reproduced failure again.",
+      "change": "After vkCmdClearAttachments, call the existing reset_graphics_bindings helper so subsequent draws rebind graphics resources. Preserve pixel thresholds and improve the probe's failing-expression diagnostics. No claim that the Vulkan state contract itself changed.",
+      "regression": "120 frames, 921600 exact RGBA-channel checks, 120 capture/resume operations and stable-allocation assertions."
+    }
+  ],
+  "validation": [
+    {
+      "check": "Clean CPU RelWithDebInfo default build and CTest",
+      "result": "110/110 passed",
+      "log": "build/audit/ctest.log"
+    },
+    {
+      "check": "Clean Debug ASan/UBSan default build and CTest",
+      "result": "110/110 passed",
+      "log": "build/audit/asan-ctest.log",
+      "limit": "detect_leaks=0; no LeakSanitizer claim"
+    },
+    {
+      "check": "Python discovery",
+      "result": "33/33 passed, including four new audit boundary/native-fixture tests",
+      "log": "build/audit/python-tests.log"
+    },
+    {
+      "check": "Sanitized PCM probe boundary/uppercase fixture",
+      "result": "1/1 passed"
+    },
+    {
+      "check": "Five driver platform-path harness",
+      "result": "5 original Linux failures reproduced; 10 corrected macOS/Linux runs passed",
+      "log": "build/audit/driver-platform-check.log",
+      "limit": "Mocks build/oracle subprocesses; does not validate real EXE semantics or native Linux"
+    },
+    {
+      "check": "Vulkan/offscreen full default build",
+      "result": "passed",
+      "log": "build/audit/gpu-build.log"
+    },
+    {
+      "check": "Native macOS biko3 executable full link",
+      "result": "passed",
+      "log": "build/audit/native-build.log",
+      "limit": "No GUI interaction or gameplay run"
+    },
+    {
+      "check": "Offscreen biko3-preview launch without arguments",
+      "result": "exit 1 with expected usage before GPU/resource access; native/offscreen object symbols independently checked"
+    },
+    {
+      "check": "Python source compile and shell syntax / whitespace",
+      "result": "324 Python files compile; sh -n test-host.sh and git diff --check passed"
+    },
+    {
+      "check": "Synthetic Vulkan CTest outside filesystem sandbox",
+      "result": "16/16 passed, including all four probes previously called only by test-host.sh",
+      "log": "build/audit/gpu-ctest-unsandboxed.log"
+    }
+  ],
+  "environment_findings": [
+    {
+      "issue": "Sandbox cannot access Metal",
+      "evidence": "Inside sandbox, 11 Vulkan tests failed at vkCreateInstance with VkResult -9 and resize test skipped; verbose MoltenVK explicitly reported Metal unavailable.",
+      "resolution": "Authorized local probes rerun outside sandbox identify Apple M1 Pro; final 16-test GPU suite passes. Initial sandbox failures remain in build/audit/gpu-ctest.log."
+    }
+  ],
+  "remaining_limits": [
+    "No original fixed-EXE instruction comparisons or real game-asset/image/Pillow audits: local game/EXE inputs are absent.",
+    "No native Linux execution; library-path branches validated with isolated harness only.",
+    "No Switch build or hardware acceptance, full natural story traversal, or delivery packaging.",
+    "No LeakSanitizer result; ASan/UBSan was run with detect_leaks=0.",
+    "The graphics binding repair was verified on MoltenVK only; Switch NVK hardware rendering/performance remains untested."
+  ]
+}

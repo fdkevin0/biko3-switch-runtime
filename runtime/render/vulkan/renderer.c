@@ -1551,6 +1551,8 @@ int bk_renderer_clear_depth(BkRenderer *r, float depth, char error[256]) {
       .baseArrayLayer = 0,
       .layerCount = 1};
   vkCmdClearAttachments(r->command, 1, &attachment, 1, &rect);
+  /* MoltenVK attachment clears can disturb cached texture bindings. */
+  reset_graphics_bindings(r);
   return 1;
 }
 int bk_renderer_begin(BkRenderer *r, char error[256]) {

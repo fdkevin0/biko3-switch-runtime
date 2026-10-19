@@ -112,7 +112,11 @@ int main(int argc, char **argv) {
   BkAudioSink sink = {&submitted, 48000, 240, 960, submit, poll};
   audio = bk_audio_create(&sink, error);
   REQUIRE(renderer && files && audio);
-  BkSceneServices services = {store, renderer, stderr, audio, files, NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = renderer,
+                              .log = stderr,
+                              .audio = audio,
+                              .capture_files = files};
   for (unsigned group = 0; group < 5; ++group) {
     BkGameFrameState state;
     BkEntryProgress progress;

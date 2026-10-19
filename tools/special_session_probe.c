@@ -192,7 +192,11 @@ int main(int argc, char **argv) {
   }
   snprintf(path,sizeof path,"%s/captures",argv[2]);
   CHECK(captures = bk_capture_files_create(path,error));
-  BkSceneServices services = {store,renderer,stdout,audio,captures, NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = renderer,
+                              .log = stdout,
+                              .audio = audio,
+                              .capture_files = captures};
   CHECK(scene = bk_play_session_create_with_storage(&services,NULL,unlocks,error));
   CHECK(present(scene,renderer,audio,error));
   PlaySession *s = bk_scene_custom_context(scene);

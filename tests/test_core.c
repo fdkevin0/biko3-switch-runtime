@@ -55,28 +55,6 @@ int main(void) {
   CHECK(native.seconds == .22f);
   bk_game_clock_poll(&native, 533, 533);
   CHECK(native.seconds == .033f);
-  /* Slow presentations must advance real time, without demanding extra
-   * presentations to service fixed ticks. Includes fluctuating load. */
-  const double intervals[] = {1.0 / 60, 1.0 / 30, 1.0 / 20, 1.0 / 15, .04, .08};
-  for (unsigned rate = 0; rate < 7; ++rate) {
-    bk_clock_init(&clock);
-    double now = 100, simulation = 0;
-    CHECK(bk_clock_present(&clock, now).steps == 0);
-    for (unsigned i = 0; i < 600; ++i) {
-      double dt = intervals[rate == 6 ? i % 6 : rate];
-      now += dt;
-      BkClockFrame shown = bk_clock_present(&clock, now);
-      CHECK(shown.steps == 1 && fabs(shown.step_seconds - dt) < 1e-12);
-      simulation += shown.step_seconds;
-    }
-    CHECK(fabs(simulation - (now - 100)) < 1e-10);
-    CHECK(clock.ticks == 600 && clock.dropped_seconds == 0);
-    CHECK(!bk_clock_present(&clock, now).steps);
-    CHECK(!bk_clock_present(&clock, NAN).steps);
-    CHECK(!bk_clock_present(&clock, now - 1).steps);
-    CHECK(bk_clock_present(&clock, now + 5).step_seconds == .25);
-    CHECK(clock.dropped_seconds == 4.75);
-  }
   BkInput pending = {0};
   BkInput press = {.held = BK_BUTTON_CONFIRM, .pressed = BK_BUTTON_CONFIRM};
   BkInput held = {.held = BK_BUTTON_CONFIRM, .move_x = .5f};

@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 import subprocess
 import tempfile
 
@@ -64,7 +65,7 @@ def main():
             run(label+'-native', [str(python.absolute()), str(ROOT/'tests/original_gallery_menu_oracle.py'),str(a.exe.resolve()),'--output',str(native)], native_env)
             data = json.loads(native.read_text())
             if not data.get('passed') or data['exe_sha256'] != report['exe_sha256']: raise RuntimeError('native result missing pass/digest')
-            report['checks'].append(dict(kind='native',mode=label,result=data,library_sha256=digest(ROOT/folder/'libmodel-test.dylib')))
+            report['checks'].append(dict(kind='native',mode=label,result=data,library_sha256=digest(ROOT/folder/('libmodel-test.dylib' if sys.platform == 'darwin' else 'libmodel-test.so'))))
             print(label+' native PASS frames='+str(data['frames']),flush=True)
         for label, folder in [('host','build'),('asan','build/asan-static')]:
             binary=ROOT/folder/'gallery-menu-probe'

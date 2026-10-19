@@ -174,8 +174,11 @@ int main(int argc, char **argv) {
   BkAudioSink sink = {&submitted, 48000, 240, 960, submit, poll};
   run.audio = bk_audio_create(&sink, e);
   CHECK(captures && files && run.renderer && run.audio);
-  BkSceneServices services = {resources, run.renderer, stderr, run.audio,
-                              captures, NULL};
+  BkSceneServices services = {.resources = resources,
+                              .renderer = run.renderer,
+                              .log = stderr,
+                              .audio = run.audio,
+                              .capture_files = captures};
   run.scene = bk_play_session_create_development(&services, files, e);
   CHECK(run.scene && present(&run, e));
   CHECK(ready(&run, e));

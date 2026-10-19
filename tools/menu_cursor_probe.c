@@ -74,7 +74,8 @@ int main(int argc,char **argv) {
   r.audio=bk_audio_create(&(BkAudioSink){&r,48000,240,960,submit,poll},e);CHECK(r.audio);
   curtain=bk_curtain_render_create(r.renderer,store,e);CHECK(curtain);
   CHECK(bk_menu_cursor_initialize(&r.cursor,960,720));bk_common_hud_initialize(&common);
-  BkFrontEndConfig config={.services={store,r.renderer,stderr,r.audio,NULL,NULL},
+  BkFrontEndConfig config={.services={.resources=store,.renderer=r.renderer,
+      .log=stderr,.audio=r.audio},
       .viewport={160,0,960,720},.common=&common,.curtain=curtain,.flow=&r.flow,
       .cursor=&r.cursor,.hover=&hover,.group=&group,.area=&area,.random=&random,
       .photos=photos,.photo_count=&count,.context=&r,.schedule=schedule};

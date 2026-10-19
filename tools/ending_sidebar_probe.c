@@ -233,7 +233,10 @@ int main(int argc, char **argv) {
   BkRenderStats baseline = bk_renderer_stats(r);
   BkAudioSink output = {&sink,48000,480,1920,sidebar_submit,sidebar_poll};
   CHECK(audio = bk_audio_create(&output,e));
-  BkSceneServices services = {store,r,stdout,audio,NULL,NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = r,
+                              .log = stdout,
+                              .audio = audio};
   uint8_t unlocked[5][8] = {{0}};
   if (!strcmp(mode,"normal")) {
     CHECK(records = calloc(1,sizeof(*records)));

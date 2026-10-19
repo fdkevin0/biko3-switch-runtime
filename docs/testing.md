@@ -63,6 +63,10 @@ local/venv/bin/pip install -r tests/requirements.txt
 
 `test-host.sh` 会构建并运行普通和 ASan/UBSan 的多组检查；提供游戏根目录后继续真实资源/应用检查。`BK3_ORIGINAL_EXE` 选择固定 EXE，`BK3_TEST_PYTHON` 选择测试 Python。这是广泛回归入口，不是每次文档或局部代码编辑的前置步骤，也不等于完整自然剧情遍历。
 
+ASan/UBSan 使用完整默认构建，避免手写目标清单漏掉新注册的 CTest；UBSan 遇错终止，LeakSanitizer 关闭。Python discovery 还使用 `asset-probe`、`pcm-probe` 和两份测试动态库，定向运行时须先构建这些依赖。资源审计拒绝空目录、空归档集合或没有被测条目的输入，不能用零工作量覆盖已有报告。
+
+合成纹理更新、GPU 传输、局部深度清除和共享角色视图探针均已注册为 `vulkan-*` CTest，与其他 GPU 单测一起执行。
+
 ## 记录结果
 
 | 证据 | 可以说明什么 |

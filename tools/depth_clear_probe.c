@@ -7,8 +7,7 @@
 #define CHECK(x)                                                               \
   do {                                                                         \
     if (!(x)) {                                                                \
-      if (!*e)                                                                 \
-        snprintf(e, sizeof(e), "failed line%d", __LINE__);                     \
+      fprintf(stderr, "depth clear line%d: %s (%s)\n", __LINE__, #x, e);      \
       goto done;                                                               \
     }                                                                          \
   } while (0)
@@ -39,6 +38,7 @@ int main(void) {
   marker = quad(r, .1f, 0, 1, 0, e);
   CHECK(front && back && marker);
   CHECK(!bk_renderer_clear_depth(r, 1, e));
+  e[0] = 0;
   BkRenderStats initial = bk_renderer_stats(r);
   unsigned samples = 0, captures = 0;
   for (unsigned frame = 0; frame < 120; frame++) {
@@ -55,6 +55,7 @@ int main(void) {
       CHECK(!bk_renderer_clear_depth(r, NAN, e));
       CHECK(!bk_renderer_clear_depth(r, -.1f, e));
       CHECK(!bk_renderer_clear_depth(r, 1.1f, e));
+      e[0] = 0;
       CHECK(bk_renderer_capture(r, rgba, sizeof(rgba), e));
       captures++;
       CHECK(!memcmp(held, rgba, sizeof(rgba)));
@@ -97,7 +98,7 @@ int main(void) {
   rc = 0;
 done:
   if (rc)
-    fprintf(stderr, "FAIL depth clear: %s\n", e);
+    fprintf(stderr, "FAIL depth clear\n");
   bk_mesh_destroy(r, marker);
   bk_mesh_destroy(r, back);
   bk_mesh_destroy(r, front);

@@ -63,8 +63,10 @@ def check(data,m):
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('data',type=Path)
     p.add_argument('--output',type=Path,default=ROOT/'local/cpu-model-audit.json');args=p.parse_args()
+    archives=sorted(args.data.glob('*.pp'))
+    if not archives:p.error('data directory contains no PP archives: '+str(args.data))
     lib=library();results=[];unsupported=[];failures=[]
-    for path in sorted(args.data.glob('*.pp')):
+    for path in archives:
         archive=Archive(path)
         for e in archive.entries:
             if not e.name.lower().endswith('.x'):continue
@@ -81,6 +83,7 @@ def main():
             except AssertionError as ex:failures.append({'archive':path.name,'name':e.name,'error':str(ex)})
             finally:lib.bk_model_destroy(out)
         print(f'{path.name}: {len(results)} OBJM checked so far',flush=True)
+    if not (results or unsupported or failures):p.error('PP archives contain no .x model entries')
     keys=('meshes','submeshes','vertices','triangles','materials','textures','frames')
     summary={'objm_models':len(results),'unsupported_text_models':unsupported,'failures':failures,
              'totals':{k:sum(x[k] for x in results) for k in keys},

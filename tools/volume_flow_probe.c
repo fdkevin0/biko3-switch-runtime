@@ -123,7 +123,12 @@ int main(int argc,char **argv) {
   captures=bk_capture_files_create(argv[2],e);saves=bk_checkpoint_files_create(argv[2],e);unlocks=bk_unlock_file_create(argv[2],e);records=bk_record_file_create(argv[2],e);volume=bk_volume_file_create(argv[2],e);CHECK(captures && saves && unlocks && records && volume);
   BkAudioSink sink={r,48000,240,960,submit,poll};r->audio=bk_audio_create(&sink,e);CHECK(r->audio);
   uint64_t baseline=bk_renderer_stats(r->r).live_allocations;
-  BkSceneServices services={store,r->r,stderr,r->audio,captures,bk_volume_file_values(volume)};
+  BkSceneServices services={.resources = store,
+                              .renderer = r->r,
+                              .log = stderr,
+                              .audio = r->audio,
+                              .capture_files = captures,
+                              .audio_volumes = bk_volume_file_values(volume)};
   r->scene=bk_play_session_create_with_progress(&services,saves,unlocks,records,volume,e);CHECK(r->scene && present(r,e));
   ((BkGameFrameState *)bk_play_session_state(r->scene))->random=0x4ac6a7; /*initial RNG fixture only*/
   CHECK(idle(r,180,e));

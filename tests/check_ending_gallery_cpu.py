@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 import subprocess
 import tempfile
 
@@ -101,7 +102,7 @@ def main():
                 if len(summaries) != 1 or not data.get('passed') or data.get('exe_sha256') != report['exe_sha256']:
                     raise RuntimeError(mode+' '+suite+' omitted a matching terminal pass')
                 report['checks'].append(dict(mode=mode, suite=suite, result=data, summary=summaries[0],
-                    library_sha256=digest(ROOT/folder/'libmodel-test.dylib'),
+                    library_sha256=digest(ROOT/folder/('libmodel-test.dylib' if sys.platform == 'darwin' else 'libmodel-test.so')),
                     python_sha256=digest(python.resolve())))
                 print(summaries[0], flush=True)
         for suite in suites:

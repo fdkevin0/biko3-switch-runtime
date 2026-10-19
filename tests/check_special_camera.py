@@ -9,6 +9,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib, json, os
 from pathlib import Path
+import sys
 import subprocess, tempfile
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -103,7 +104,7 @@ def main():
                 results['gpu']=summaries[0]
                 print('PASS',mode,'GPU',flush=True)
             report['checks'].append(dict(mode=mode,results=results,
-                library_sha256=digest(ROOT/folder/'libmodel-test.dylib'),python_sha256=digest(python.resolve())))
+                library_sha256=digest(ROOT/folder/('libmodel-test.dylib' if sys.platform == 'darwin' else 'libmodel-test.so')),python_sha256=digest(python.resolve())))
         if report['checks'][0]['results']!=report['checks'][1]['results']:
             raise RuntimeError('ordinary and sanitized outcomes differ')
         if any(not (ROOT/p).is_file() or digest(ROOT/p)!=v for p,v in sources.items()):

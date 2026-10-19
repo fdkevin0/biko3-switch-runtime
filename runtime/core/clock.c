@@ -1,26 +1,6 @@
 #include "core/clock.h"
 #include <math.h>
 #include <string.h>
-BkClockFrame bk_clock_present(BkClock *clock, double now) {
-  BkClockFrame frame = {0};
-  if (!isfinite(now))
-    return frame;
-  if (!clock->initialized) {
-    clock->initialized = 1;
-    clock->last_time = now;
-    return frame;
-  }
-  double elapsed = now - clock->last_time;
-  if (elapsed <= 0)
-    return frame;
-  clock->last_time = now;
-  if (elapsed > .25) {
-    clock->dropped_seconds += elapsed - .25;
-    elapsed = .25;
-  }
-  clock->ticks++;
-  return (BkClockFrame){1, elapsed, 0};
-}
 void bk_clock_init(BkClock *clock) {
   memset(clock, 0, sizeof(*clock));
   clock->step = 1.0 / 60.0;

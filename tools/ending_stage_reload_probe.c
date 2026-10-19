@@ -59,7 +59,10 @@ static int stage_profile(BkRenderer *renderer, BkResourceStore *store,
   StageSink sink = {.hash = UINT64_C(14695981039346656037)};
   BkAudioSink output = {&sink, 48000, 480, 1920, stage_submit, stage_poll};
   VERIFY(audio = bk_audio_create(&output, e));
-  BkSceneServices services = {store, renderer, stdout, audio, NULL, NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = renderer,
+                              .log = stdout,
+                              .audio = audio};
   uint8_t unlocked[5][8] = {{0}};
   VERIFY(records = calloc(1, sizeof(*records)));
   VERIFY(scene = bk_ending_normal_scene_create_story(

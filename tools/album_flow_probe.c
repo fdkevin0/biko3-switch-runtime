@@ -65,7 +65,12 @@ int main(int argc,char **argv) {
   saves=bk_checkpoint_files_create(argv[2],e);unlock=bk_unlock_file_create(argv[2],e);records=bk_record_file_create(argv[2],e);volume=bk_volume_file_create(argv[2],e);CHECK(saves && unlock && records && volume);
   r->r=bk_renderer_create(1280,720,stderr,e);CHECK(r->r);uint64_t baseline=bk_renderer_stats(r->r).live_allocations;
   BkAudioSink sink={r,48000,240,960,submit,poll};r->audio=bk_audio_create(&sink,e);CHECK(r->audio);
-  BkSceneServices services={store,r->r,stderr,r->audio,files,bk_volume_file_values(volume)};
+  BkSceneServices services={.resources = store,
+                              .renderer = r->r,
+                              .log = stderr,
+                              .audio = r->audio,
+                              .capture_files = files,
+                              .audio_volumes = bk_volume_file_values(volume)};
   r->scene=bk_play_session_create_with_progress(&services,saves,unlock,records,volume,e);CHECK(r->scene && present(r,e));
   CHECK(open_album(r,e));unsigned pictures=0,pages=0;uint8_t color[3];
   for(unsigned g=0;g<5;++g) {

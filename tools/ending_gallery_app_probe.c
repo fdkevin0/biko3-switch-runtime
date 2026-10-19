@@ -159,7 +159,10 @@ int main(int argc, char **argv) {
     for (unsigned i = 0; i < 8; ++i) row[i] = (uint8_t)(2 + g * 20 + i);
     CHECK(bk_unlock_file_store(unlocks, g, row, &saved, error));
   }
-  BkSceneServices services = {store, renderer, stdout, audio, NULL, NULL};
+  BkSceneServices services = {.resources = store,
+                              .renderer = renderer,
+                              .log = stdout,
+                              .audio = audio};
   CHECK(scene = bk_play_session_create_with_storage(&services, NULL, unlocks, error));
   CHECK(present(scene, renderer, audio, error));
   PlaySession *s = bk_scene_custom_context(scene);
