@@ -44,6 +44,8 @@ brew install cmake sdl3 molten-vk vulkan-loader vulkan-headers glslang
 
 默认 960×720 窗口，支持拖动缩放与运行时全屏。内容保持 4:3，宽屏两侧黑边是预期布局。窗口尺寸变化会重建 swapchain/帧缓冲，失去焦点时暂停模拟并降低轮询频率。
 
+标题页和人物选择页会同步缩放缓存的按钮、图像与光标命中区域，保留当前选择和动画进度。本机 Retina 实际窗口与资源回归范围见[窗口缩放验证](../reports/macos-window-resize.json)。
+
 设置文件 `~/Library/Application Support/Biko3/settings.cfg` 示例：
 
 ```ini

@@ -70,6 +70,31 @@ int main(void) {
   assert(bk_selection_ui_initialize(&s, 1280, 0, -900, e));
   assert(s.selected == 3 && s.row == 4 &&
          s.loaded == ((UINT64_C(1) << 42) - 2));
+  s.sprites[7].transform.fade.alpha = .375f;
+  s.sprites[7].transform.scale[0] = .6f;
+  s.reveal[1] = .75f;
+  s.scroll = .3f;
+  s.music_volume = -1800;
+  s.music_mode = 2;
+  BkSelectionUi before_resize = s;
+  s.pointer[0] = 100;
+  s.motion[1] = 4;
+  assert(bk_selection_ui_resize(&s, 1280, 640, e));
+  for (unsigned i = 0; i < BK_SELECTION_SPRITES; ++i) {
+    if (s.loaded & (UINT64_C(1) << i))
+      for (unsigned j = 0; j < 4; ++j)
+        assert(s.sprites[i].rect[j] == before_resize.sprites[i].rect[j] / 2);
+    memcpy(s.sprites[i].rect, before_resize.sprites[i].rect,
+           sizeof(s.sprites[i].rect));
+  }
+  assert(s.pointer[0] == 50 && s.motion[1] == 2);
+  s.pointer[0] = s.motion[1] = 0;
+  assert(!memcmp(&s, &before_resize, sizeof(s)));
+  assert(bk_selection_ui_resize(&s, 1280, 1280, e));
+  assert(!memcmp(&s, &before_resize, sizeof(s)));
+  assert(!bk_selection_ui_resize(&s, 0, 640, e));
+  assert(!bk_selection_ui_resize(&s, 1280, 16385, e));
+  assert(!memcmp(&s, &before_resize, sizeof(s)));
   BkSelectionSprite retained = s.sprites[1];
   assert(bk_selection_ui_initialize(&s, 640, 1, -800, e));
   assert(!memcmp(&retained, &s.sprites[1], sizeof(retained)));

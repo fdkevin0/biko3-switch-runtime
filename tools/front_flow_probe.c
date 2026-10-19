@@ -52,6 +52,74 @@ static int tick(BkScene *scene, BkRenderer *renderer, BkAudio *audio,
   return bk_audio_poll(audio, e) && bk_scene_step(scene, 1.0 / 60, &input, e) &&
          present(scene, renderer, audio, e);
 }
+static double texel(const BkImage *image, int x, int y, unsigned c) {
+  unsigned w = image->width, h = image->height;
+  x = (x + (int)w) % (int)w;
+  y = (y + (int)h) % (int)h;
+  return image->rgba[((size_t)y * w + x) * 4 + c];
+}
+static int title_resize(BkScene *scene, BkRenderer *renderer, BkAudio *audio,
+                         BkResourceStore *store, char error[256]) {
+  BkBlob raw = {0};
+  BkImage image = {0};
+  uint8_t *pixels = NULL;
+  int ok = 0;
+  REQUIRE(bk_resources_read(store, "bk3_00", "op_00.bmp", &raw, error) ==
+              BK_RESOURCE_OK && bk_image_decode(raw.data, raw.size, &image, error));
+  for (unsigned i = 0; i < 120; ++i)
+    REQUIRE(tick(scene, renderer, audio, (BkInput){0}, error));
+  const unsigned sizes[][2] = {
+      {640, 480}, {1600, 900}, {1001, 777}, {800, 800}, {1280, 720}};
+  for (unsigned i = 0; i < sizeof(sizes) / sizeof(*sizes); ++i) {
+    unsigned w = sizes[i][0], h = sizes[i][1];
+    unsigned old_w, old_h;
+    BkViewport view, old_view;
+    bk_renderer_extent(renderer, &old_w, &old_h);
+    REQUIRE(bk_camera_fit(&old_view, old_w, old_h, 4, 3) &&
+            bk_camera_fit(&view, w, h, 4, 3) &&
+            bk_renderer_resize(renderer, w, h, error) &&
+            bk_scene_resize(scene, w, h, error));
+    pixels = malloc((size_t)w * h * 4);
+    REQUIRE(pixels);
+    for (unsigned redraw = 0; redraw < 2; ++redraw) {
+      REQUIRE(redraw ? tick(scene, renderer, audio, (BkInput){0}, error)
+                     : present(scene, renderer, audio, error));
+      REQUIRE(bk_renderer_readback(renderer, pixels, (size_t)w * h * 4, error));
+      for (unsigned y = 7; y < 10; ++y)
+        for (unsigned x = 1; x < 10; ++x) {
+          unsigned px = view.width * x / 10, py = view.height * y / 10;
+          /* A zero-step redraw retains its prepared half-pixel offset. */
+          double lw = redraw ? view.width : old_view.width;
+          double lh = redraw ? view.height : old_view.height;
+          double u = ((px + .5) / view.width - .5 / lw) * image.width - .5;
+          double v = ((py + .5) * lh / view.height - .5) /
+                         (.75 * lw) * image.height - .5;
+          int l = (int)floor(u), t = (int)floor(v);
+          double fx = u - l, fy = v - t;
+          for (unsigned c = 0; c < 3; ++c) {
+            double expected =
+                (texel(&image, l, t, c) * (1 - fx) + texel(&image, l + 1, t, c) * fx) * (1 - fy) +
+                (texel(&image, l, t + 1, c) * (1 - fx) + texel(&image, l + 1, t + 1, c) * fx) * fy;
+            int actual = pixels[((size_t)(view.y + py) * w + view.x + px) * 4 + c];
+            if (fabs(actual - expected) > 2) {
+              snprintf(error, 256, "resized title %ux%u redraw%u at %u,%u: %d vs %.2f",
+                       w, h, redraw, px, py, actual, expected);
+              goto done;
+            }
+          }
+        }
+    }
+    free(pixels);
+    pixels = NULL;
+  }
+  puts("PASS title resize: shrink/grow/letterbox, zero-step and updated pixels");
+  ok = 1;
+done:
+  free(pixels);
+  bk_blob_free(&raw);
+  bk_image_free(&image);
+  return ok;
+}
 int main(int argc, char **argv) {
   if (argc != 4) {
     fprintf(stderr, "usage: front-flow-probe DATA CAPTURES OUTPUT.rgba\n");
@@ -120,6 +188,7 @@ int main(int argc, char **argv) {
   REQUIRE(scene && present(scene, renderer, audio, error));
   const BkCommonHudState *common = bk_play_session_common(scene);
   REQUIRE(bk_play_session_flow(scene)->current == 1);
+  REQUIRE(title_resize(scene, renderer, audio, store, error));
   /* Authored title new-game rectangle in the960x720 centered viewport. */
   unsigned original_title = 0, select_frames = 0, dialogue_frames = 0,
            loading_frames = 0;
@@ -146,18 +215,29 @@ int main(int argc, char **argv) {
   REQUIRE(bk_play_session_flow(scene)->current == 0x38);
   for (; select_frames < 600 && bk_play_session_flow(scene)->current == 0x38;
        select_frames++) {
+    if (select_frames == 60 || select_frames == 100 || select_frames == 140 || select_frames == 180) {
+      const unsigned sizes[][2] = {{640, 480}, {1600, 900}, {800, 800}, {1280, 720}};
+      unsigned index = (select_frames - 60) / 40;
+      REQUIRE(bk_renderer_resize(renderer, sizes[index][0], sizes[index][1], error) &&
+              bk_scene_resize(scene, sizes[index][0], sizes[index][1], error));
+    }
+    unsigned w, h;
+    BkViewport view;
+    bk_renderer_extent(renderer, &w, &h);
+    REQUIRE(bk_camera_fit(&view, w, h, 4, 3));
+    float scale = view.width / 1280.f;
     /* Click all five authored character selectors, ending on group0. */
     unsigned segment = select_frames / 40,
              group = segment < 4 ? segment + 1 : target_group;
     BkInput in = {.pointer_active = 1};
     if (select_frames < 200) {
-      in.pointer_x = 160 + 56 * .75f;
-      in.pointer_y = (124 + 67 * group) * .75f;
+      in.pointer_x = view.x + 56 * scale;
+      in.pointer_y = view.y + (124 + 67 * group) * scale;
       if (select_frames % 40 == 24)
         in.pressed = BK_BUTTON_CONFIRM;
     } else {
-      in.pointer_x = 160 + 832 * .75f;
-      in.pointer_y = 908 * .75f;
+      in.pointer_x = view.x + 832 * scale;
+      in.pointer_y = view.y + 908 * scale;
       if (select_frames % 20 == 19)
         in.pressed = BK_BUTTON_CONFIRM;
     }

@@ -51,7 +51,7 @@ int bk_front_end_step(BkFrontEnd *, double game_seconds, double wall_seconds,
 int bk_front_end_draw(BkFrontEnd *, char error[256]);
 int bk_front_end_after_present(BkFrontEnd *, char error[256]);
 int bk_front_end_active(const BkFrontEnd *);
-/* Recompute the cached 4:3 outer viewport after a window resize. */
+/* Resize the viewport and retained title/selection geometry together. */
 int bk_front_end_resize(BkFrontEnd *, unsigned width, unsigned height,
                         char error[256]);
 int bk_front_end_result(const BkFrontEnd *, BkDialogueResult *,

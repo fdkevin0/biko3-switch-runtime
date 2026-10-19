@@ -1,0 +1,117 @@
+{
+  "date": "2026-10-19",
+  "base_commit": "ac7f0c4",
+  "scope": "macOS title and character-selection window resizing, as clarified by the user",
+  "cause": "The resize callback updated the 4:3 viewport but retained UI rectangles and title hit-test half extents at their original pixel size. The next prepare used the new projection size, clipping the old layout. Selection also retained its original session width/height.",
+  "fix": [
+    "Resize loaded title rectangles and recompute constructor-truncated hit-test half extents.",
+    "Resize loaded selection rectangles and cached pointer coordinates, and update the owning selection session dimensions.",
+    "Scale the shared cursor and cached frontend pointer/motion values with the same viewport ratio.",
+    "Use the same resize path when draw detects a changed renderer extent; preserve fade/zoom/selection/music/actor state and existing prepared zero-step frames."
+  ],
+  "regression": {
+    "before": "The original frontend implementation, linked into the same new resource regression, fails at 640x480 after its first updated frame: a background channel is 0 instead of the independently sampled 28.",
+    "before_log": "build/validation/resize/front-before.log",
+    "permanent_checks": [
+      "tests/test_selection_ui.c: loaded rectangles/pointer scale; active fade/zoom/reveal/scroll/selection/music fields remain unchanged; zero or oversized dimensions reject atomically; same-size resize is inert.",
+      "tools/front_flow_probe.c: title shrinking, growing, square/widescreen/odd sizes, zero-step and updated snapshots against independently sampled op_00.bmp pixels within two byte levels.",
+      "tools/front_flow_probe.c: resize character selection while clicking all five profiles and continue its existing dialogue/game/pause/title regression."
+    ],
+    "title_target_sizes": [
+      [
+        640,
+        480
+      ],
+      [
+        1600,
+        900
+      ],
+      [
+        1001,
+        777
+      ],
+      [
+        800,
+        800
+      ],
+      [
+        1280,
+        720
+      ]
+    ],
+    "selection_target_sizes": [
+      [
+        640,
+        480
+      ],
+      [
+        1600,
+        900
+      ],
+      [
+        800,
+        800
+      ],
+      [
+        1280,
+        720
+      ]
+    ]
+  },
+  "validation": [
+    {
+      "check": "Title-menu and selection-ui CPU CTest",
+      "result": "2/2 passed"
+    },
+    {
+      "check": "Title-menu and selection-ui ASan/UBSan CTest",
+      "result": "2/2 passed",
+      "limit": "ASAN_OPTIONS=detect_leaks=0; UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1"
+    },
+    {
+      "check": "Architecture checks",
+      "result": "2/2 passed",
+      "log": "build/validation/resize/architecture.log"
+    },
+    {
+      "check": "Full resource frontend flow including resize and pointer targets",
+      "result": "passed; title=242 selection=283 dialogue=1784 loading=375 opening=995 pause=136 return-title=141 photos=2",
+      "log": "build/validation/resize/front-final.log"
+    },
+    {
+      "check": "Native game clock plus controller navigation resource flow",
+      "result": "passed; title=212 selection=273 dialogue=1514 loading=195 opening=497 pause=106 return-title=111 photos=2",
+      "log": "build/validation/resize/front-controller.log",
+      "limit": "Ran four title target sizes before adding the odd-size fixture; same production fix."
+    },
+    {
+      "check": "Actual macOS Retina SDL/Vulkan window",
+      "result": "passed: title 960x720 to 640x480 points, renderer 1920x1440 to 1280x960; selection then grows to a 1000x600-point window / 2000x1200-pixel renderer with centered 1600x1200 content, profile click and complete UI visible",
+      "log": "build/validation/resize/native-window.log",
+      "method": "Temporary native probe uses bk_platform_open/poll/take_resize and bk_renderer_create_window/resize, then production PlaySession resize/step/draw. SDL_SetWindowSize drives a real window; this is not a human drag/fullscreen acceptance test."
+    },
+    {
+      "check": "macOS application build",
+      "result": "passed",
+      "binary": "build-macos/biko3",
+      "sha256": "86a5ed19aeee798e5f815a9c3408112fd3040081ffb0dea81787016b19a977b8",
+      "log": "build/validation/resize/native-build.log"
+    },
+    {
+      "check": "Whitespace checks",
+      "result": "git diff --check passed"
+    }
+  ],
+  "environment": {
+    "hardware": "Apple M1 Pro / Retina 2x",
+    "graphics": "MoltenVK 1.4.2",
+    "assets": "User-installed game resources read-only; no existing user save/settings were used",
+    "outputs": "Ignored build/validation/resize; separate capture/save fixtures. The native probe writes settings only under newly created /tmp/bk-window-resize-* directories."
+  },
+  "limits": [
+    "Other scenes' dynamic window-resize layouts were not audited in this task.",
+    "No exhaustive story run, fullscreen/monitor migration acceptance or Switch hardware check.",
+    "No delivery bundle was overwritten; the updated executable is build-macos/biko3.",
+    "LeakSanitizer was disabled; ASan/UBSan results do not prove absence of leaks."
+  ]
+}

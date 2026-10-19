@@ -526,11 +526,43 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
 }
 int bk_front_end_resize(BkFrontEnd *s, unsigned width, unsigned height,
                         char e[256]) {
-  if (!s || !width || !height ||
-      !bk_camera_fit(&s->c.viewport, width, height, 4, 3)) {
+  BkViewport viewport;
+  if (!s || !s->c.viewport.width || !width || !height ||
+      width > 16384 || height > 16384 ||
+      !bk_camera_fit(&viewport, width, height, 4, 3)) {
     snprintf(e, 256, "front end: invalid resize viewport");
     return 0;
   }
+  float ratio = (float)viewport.width / s->c.viewport.width;
+  if (ratio != 1) {
+    if (s->active == 1) {
+      for (unsigned i = 0; i < BK_TITLE_SPRITES; ++i) {
+        if (!(s->title.loaded_mask & (1u << i)))
+          continue;
+        BkTitleSprite *p = &s->title.sprites[i];
+        /* Keep the constructor's truncated half extents in the hit boxes. */
+        for (unsigned axis = 0; axis < 2; ++axis) {
+          float origin = p->rect[axis] - (i ? p->half[axis] : 0);
+          p->rect[axis + 2] *= ratio;
+          p->half[axis] = (int32_t)(p->rect[axis + 2] / 2);
+          p->rect[axis] = origin * ratio + (i ? p->half[axis] : 0);
+        }
+      }
+    }
+    for (unsigned i = 0; i < 4; ++i)
+      s->c.cursor->sprite.rect[i] *= ratio;
+    for (unsigned i = 0; i < 2; ++i) {
+      s->pointer[i] *= ratio;
+      s->motion[i] *= ratio;
+      s->menu_pointer.position[i] *= ratio;
+      s->menu_pointer.motion[i] *= ratio;
+    }
+  }
+  if (s->active == 0x38 &&
+      !bk_selection_session_resize(s->selection_session, viewport.width,
+                                   viewport.height, e))
+    return 0;
+  s->c.viewport = viewport;
   return 1;
 }
 int bk_front_end_draw(BkFrontEnd *s, char e[256]) {
@@ -538,8 +570,7 @@ int bk_front_end_draw(BkFrontEnd *s, char e[256]) {
     return fail(e, "no snapshot");
   unsigned width, height;
   bk_renderer_extent(s->c.services.renderer, &width, &height);
-  if (!bk_camera_fit(&s->c.viewport, width, height, 4, 3)) {
-    snprintf(e, 256, "front end: invalid drawable viewport");
+  if (!bk_front_end_resize(s, width, height, e)) {
     return 0;
   }
   if (!bk_renderer_viewport(s->c.services.renderer, &s->c.viewport, e))
