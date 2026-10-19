@@ -606,6 +606,12 @@ void bk_play_session_log_state(BkScene *scene, FILE *log) {
 }
 static int draw(void *context, const BkSceneFrame *frame, char error[256]) {
   PlaySession *s = context;
+  unsigned drawable_width, drawable_height;
+  bk_renderer_extent(s->services.renderer, &drawable_width, &drawable_height);
+  if (!bk_camera_fit(&s->viewport, drawable_width, drawable_height, 4, 3)) {
+    snprintf(error, 256, "play session: invalid drawable viewport");
+    return 0;
+  }
   if (s->shown == 2 || s->shown == 0x40) {
     if (!bk_scene_draw(s->game, frame, error) ||
         !bk_renderer_viewport(s->services.renderer, &s->viewport, error) ||

@@ -414,10 +414,16 @@ int bk_application_run(int argc, char **argv) {
   while (bk_platform_poll(platform, &sample)) {
 #ifdef __APPLE__
     unsigned resize_width = 0, resize_height = 0;
-    if (bk_platform_take_resize(platform, &resize_width, &resize_height) &&
-        (!bk_renderer_resize(renderer, resize_width, resize_height, error) ||
-         !bk_scene_resize(scene, resize_width, resize_height, error)))
-      goto done;
+    if (bk_platform_take_resize(platform, &resize_width, &resize_height)) {
+      if (!bk_renderer_resize(renderer, resize_width, resize_height, error) ||
+          !bk_scene_resize(scene, resize_width, resize_height, error))
+        goto done;
+      unsigned actual_width = 0, actual_height = 0;
+      bk_renderer_extent(renderer, &actual_width, &actual_height);
+      fprintf(log, "Resize: drawable=%ux%u renderer=%ux%u\n", resize_width,
+              resize_height, actual_width, actual_height);
+      fflush(log);
+    }
     if (!bk_platform_focused(platform)) {
       bk_platform_idle(platform, 16);
       continue;

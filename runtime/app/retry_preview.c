@@ -107,6 +107,12 @@ static int draw(void *context, const BkSceneFrame *frame, char error[256]) {
     snprintf(error, 256, "retry preview: draw before prepare");
     return 0;
   }
+  unsigned drawable_width, drawable_height;
+  bk_renderer_extent(r->renderer, &drawable_width, &drawable_height);
+  if (!bk_camera_fit(&r->viewport, drawable_width, drawable_height, 4, 3)) {
+    snprintf(error, 256, "retry preview: invalid drawable viewport");
+    return 0;
+  }
   return bk_renderer_viewport(r->renderer, &r->viewport, error) &&
          bk_pause_render_draw(r->render, error) &&
          bk_renderer_viewport(r->renderer, NULL, error);

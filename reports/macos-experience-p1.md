@@ -32,6 +32,10 @@ int bk_renderer_resize(BkRenderer *, unsigned width, unsigned height,
 - 第二次修复：resize 后不仅重建 renderer，还通过 `bk_scene_resize()` 通知当前
   scene/session 重新计算缓存的 4:3 viewport。此前旧 viewport 大于缩小后的
   drawable 会触发 `invalid or inactive viewport` 并退出。
+- 第三次修复：macOS 全屏 Space 过渡可能晚于 `SDL_SyncWindow` 完成，平台会等待
+  drawable 尺寸变化，并在每帧 `bk_platform_take_resize()` 重新查询；主要
+  scene 的 draw 也从 renderer extent 重新计算 viewport，避免全屏后仍按旧
+  960×720 在左上角呈现。
 
 ### 3. 帧率上限
 
@@ -56,8 +60,8 @@ macOS 主循环在呈现后按目标帧预算 idle；ProMotion 120Hz 屏不再�
 - Linux 主机构建 `biko3-preview` 通过；
 - macOS `darwin.c` 以 SDL3/Vulkan 头文件 `-Wall -Wextra -Werror -fsyntax-only`
   通过；
-- 未在真实 macOS 窗口上测试 F11/拖拽 resize；swapchain 和 scene callback
-  路径只做了编译/offscreen 验证，不能宣称实机通过。
+- 未在真实 macOS 窗口上测试 F11/拖拽 resize；swapchain、scene callback 和
+  fullscreen drawable 等待路径只做了编译/offscreen 验证，不能宣称实机通过。
 
 ## 仍未完成
 

@@ -264,11 +264,27 @@ static void toggle_fullscreen(BkPlatform *p) {
     p->settings.windowed = 0;
   }
   SDL_SyncWindow(p->window);
-  update_drawable(p);
+  /* The macOS fullscreen Space transition can complete after SyncWindow.
+   * Wait until pixel size actually changes so the renderer/scene viewport
+   * does not stay at the previous window extent (which presents in the
+   * top-left of the fullscreen surface). */
+  unsigned before_width = p->width, before_height = p->height;
+  for (unsigned attempt = 0; attempt < 60; ++attempt) {
+    update_drawable(p);
+    if (p->width != before_width || p->height != before_height)
+      break;
+    SDL_PumpEvents();
+    SDL_Delay(16);
+  }
+  static int last_width = -1, last_height = -1;
+  if (last_width != (int)p->width || last_height != (int)p->height) {
+    fprintf(stderr, "Display: fullscreen %s drawable=%ux%u\n",
+            p->settings.windowed ? "off" : "on", p->width, p->height);
+    last_width = (int)p->width;
+    last_height = (int)p->height;
+  }
   p->window_override = 0; /* An explicit F11 choice becomes the saved state. */
   save_window_settings(p);
-  fprintf(stderr, "Display: fullscreen %s\n",
-          p->settings.windowed ? "off" : "on");
 }
 
 static void poll_events(BkPlatform *p) {
@@ -778,7 +794,13 @@ void bk_platform_idle(BkPlatform *p, unsigned milliseconds) {
 }
 
 int bk_platform_take_resize(BkPlatform *p, unsigned *width, unsigned *height) {
-  if (!p || !width || !height || !p->resize_pending)
+  if (!p || !width || !height)
+    return 0;
+  /* Fullscreen/DPI transitions can finish after the SDL event that triggered
+   * them. Re-query the drawable on every frame so a delayed extent cannot
+   * leave the game presented at the old window size in the top-left. */
+  update_drawable(p);
+  if (!p->resize_pending)
     return 0;
   *width = p->pending_width;
   *height = p->pending_height;

@@ -536,6 +536,12 @@ int bk_front_end_resize(BkFrontEnd *s, unsigned width, unsigned height,
 int bk_front_end_draw(BkFrontEnd *s, char e[256]) {
   if (!s || !s->active)
     return fail(e, "no snapshot");
+  unsigned width, height;
+  bk_renderer_extent(s->c.services.renderer, &width, &height);
+  if (!bk_camera_fit(&s->c.viewport, width, height, 4, 3)) {
+    snprintf(e, 256, "front end: invalid drawable viewport");
+    return 0;
+  }
   if (!bk_renderer_viewport(s->c.services.renderer, &s->c.viewport, e))
     return 0;
   int ok = s->active == 1 ? bk_title_menu_render_draw(s->title_render, e)

@@ -3153,6 +3153,13 @@ static int draw(void *context, const BkSceneFrame *frame, char e[256]) {
   if (!s || (!s->pending && !s->valid) ||
       (!s->snapshot_render && !s->snapshot_ui_only))
     return fail(e, "no ending snapshot");
+  unsigned drawable_width, drawable_height;
+  bk_renderer_extent(s->services.renderer, &drawable_width, &drawable_height);
+  if (!bk_camera_fit(&s->viewport, drawable_width, drawable_height, 4, 3) ||
+      !bk_ending_special_viewport(&s->special_viewport, &s->viewport, e)) {
+    snprintf(e, 256, "ending normal: invalid drawable viewport");
+    return 0;
+  }
   if (!bk_renderer_viewport(s->services.renderer, &s->viewport, e))
     return 0;
   int ok = (!s->snapshot_render || bk_ending_normal_render_draw(s->snapshot_render, e)) &&

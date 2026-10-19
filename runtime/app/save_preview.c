@@ -248,6 +248,12 @@ static int draw(void *p, const BkSceneFrame *frame, char e[256]) {
     snprintf(e, 256, "save preview: missing snapshot");
     return 0;
   }
+  unsigned drawable_width, drawable_height;
+  bk_renderer_extent(s->renderer, &drawable_width, &drawable_height);
+  if (!bk_camera_fit(&s->viewport, drawable_width, drawable_height, 4, 3)) {
+    snprintf(e, 256, "save preview: invalid drawable viewport");
+    return 0;
+  }
   return bk_renderer_viewport(s->renderer, &s->viewport, e) &&
          bk_save_menu_render_draw(s->render, e) &&
          bk_renderer_viewport(s->renderer, NULL, e);

@@ -11,6 +11,8 @@
     "offscreen renderer resize 64x64 -> 128x96 -> 96x128 and draw/readback passes",
     "resize after end() while the previous frame is still submitted no longer fails",
     "scene/session resize callbacks recompute cached 4:3 viewports after drawable changes",
+    "fullscreen waits for the macOS Space drawable transition and re-queries it every frame",
+    "main scene draws derive their 4:3 viewport from the current renderer extent",
     "Linux host biko3-preview builds against the new renderer and application interfaces",
     "macOS darwin.c passes SDL3/Vulkan -Wall -Wextra -Werror syntax check",
     "settings test covers fps_cap default and round trip"

@@ -465,6 +465,12 @@ static int step(void *context, double seconds, const BkInput *device,
 static int draw(void *context, const BkSceneFrame *frame, char error[256]) {
   (void)frame;
   GamePreview *g = context;
+  bk_renderer_extent(g->renderer, &g->width, &g->height);
+  if (!bk_camera_fit(&g->viewport, g->width, g->height, 4, 3)) {
+    snprintf(error, 256, "game preview: invalid drawable viewport");
+    return 0;
+  }
+  g->screenshot_request.crop = g->viewport;
   if (!bk_renderer_viewport(g->renderer, &g->viewport, error) ||
       !bk_actor_render_batch_draw(g->world_batch, g->lights, error) ||
       !bk_rain_render_draw(g->rain_render, error) ||
