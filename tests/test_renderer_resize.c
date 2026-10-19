@@ -39,6 +39,14 @@ int main(void) {
   CHECK(bk_renderer_begin(renderer, error));
   CHECK(bk_renderer_draw(renderer, texture, quad, 6, bk_identity, error));
   CHECK(bk_renderer_end(renderer, error));
+  /* The submitted frame is still in flight here; a window resize commonly
+   * arrives exactly between end() and the next begin(). */
+  CHECK(bk_renderer_resize(renderer, 80, 80, error));
+  bk_renderer_extent(renderer, &width, &height);
+  CHECK(width == 80 && height == 80);
+  CHECK(bk_renderer_begin(renderer, error));
+  CHECK(bk_renderer_draw(renderer, texture, quad, 6, bk_identity, error));
+  CHECK(bk_renderer_end(renderer, error));
   uint8_t *rgba = calloc((size_t)width * height, 4);
   CHECK(rgba != NULL);
   CHECK(bk_renderer_readback(renderer, rgba, (size_t)width * height * 4, error));

@@ -1806,7 +1806,10 @@ int bk_renderer_resize(BkRenderer *r, unsigned width, unsigned height,
     snprintf(error, 256, "invalid renderer resize");
     return 0;
   }
-  if (r->active || r->submitted) {
+  /* end() submits the frame and leaves submitted=1 until the next begin().
+   * A resize between frames is valid: vkDeviceWaitIdle below retires the
+   * submission before the swapchain/readback objects are replaced. */
+  if (r->active) {
     snprintf(error, 256, "renderer resize during active frame");
     return 0;
   }
@@ -1814,6 +1817,7 @@ int bk_renderer_resize(BkRenderer *r, unsigned width, unsigned height,
     snprintf(error, 256, "cannot idle renderer for resize");
     return 0;
   }
+  r->submitted = 0;
   VkSurfaceFormatKHR *formats = NULL;
   for (unsigned i = 0; i < MAX_IMAGES; i++) {
     if (r->frames[i]) {

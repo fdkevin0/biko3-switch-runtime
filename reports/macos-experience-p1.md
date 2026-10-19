@@ -27,6 +27,8 @@ int bk_renderer_resize(BkRenderer *, unsigned width, unsigned height,
 - offscreen host 路径重建离屏颜色/深度/readback 目标，供测试；
 - 重建前 `vkDeviceWaitIdle`，要求不在 active frame；
 - 保留 render pass、pipeline、texture、mesh 等与 extent 无关的对象。
+- 修复：`end()` 后帧仍处于 submitted 状态，下一次 begin 前收到 resize 不应被误报
+  “active frame”；现在只拒绝真正的 active frame，submitted 由 device idle 收尾。
 
 ### 3. 帧率上限
 
@@ -44,6 +46,7 @@ macOS 主循环在呈现后按目标帧预算 idle；ProMotion 120Hz 屏不再�
 
 - 新增 `tests/test_renderer_resize.c`：
   - 离屏 renderer 64×64 → 128×96 → 96×128；
+  - 在 end() 之后、下一次 begin 之前再次 resize（submitted 帧仍在飞行）；
   - 每次 resize 后重新 begin/draw/end/readback 通过；
   - `renderer-resize ok`；
 - `tests/test_settings.c` 覆盖 `fps_cap` 默认 60、120 保存/读取；
