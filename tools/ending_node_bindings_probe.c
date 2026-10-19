@@ -105,7 +105,7 @@ static int node_profile(BkRenderer *renderer, BkResourceStore *store,
         s->state->frame.auxiliary_mode = 0;
         int playing;
         BkEndingAudioCall pause = {.operation = BK_ENDING_AUDIO_PAUSE, .slot = 1};
-        NODE_CHECK(auxiliary_state1_audio(s, &pause, &playing, e));
+        NODE_CHECK(scene_audio(s, &pause, &playing, e));
         if (stage) s->state->control.state_721eec = 1;
         else s->state->auxiliary.gate = 1;
         BkInput input = {.pointer_active = 1, .pointer_x = probe_ui_x(&s->viewport, point[0]),
@@ -131,7 +131,7 @@ static int node_profile(BkRenderer *renderer, BkResourceStore *store,
       NODE_CHECK(bk_ending_state_reload_bindings(s->state, s->common, &s->previous_flow, &bindings));
       BkEndingReloadOps ops = {s, ui_reload_load, ui_reload_release,
           ui_reload_final_image, ui_reload_leave, ui_reload_lighting,
-          ui_reload_schedule, ui_reload_present, ui_reload_status, ui_reload_pause};
+          ui_reload_schedule, scene_audio_present, scene_audio_status, scene_audio_pause};
       int early = -1;
       NODE_CHECK(bk_ending_reload_transition(&bindings, 3, &ops, &early, e));
       NODE_CHECK(!early && s->auxiliary_assets && s->retired.selected);

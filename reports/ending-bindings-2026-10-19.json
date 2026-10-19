@@ -1,0 +1,98 @@
+{
+  "date": "2026-10-19",
+  "scope": "选择结局场景绑定精简试点；基线为本轮开始时的工作区，包含此前已完成的改动，并非 Git HEAD。",
+  "changes": [
+    "复用既有 ending_auxiliary 描述符转换，供通用 UI 和选择结局使用；各调用入口保留自己的槽位限制。",
+    "删除 selected_key/raw_key/clock 纯转发层，直接绑定已有输入和时钟回调。",
+    "三份相同 RNG 回调合为 scene_random；辅助状态和鉴赏流程继续借用同一 RNG owner。",
+    "移除只有场景指针的 EndingUiTailContext；回调执行时解析当前资源，保持同帧重载后的绑定。",
+    "把选择结局回调表移到函数定义之后，仅保留实际递归关系所需的 action 前置声明。"
+  ],
+  "line_counts": {
+    "runtime_including_headers_delta": -107,
+    "new_cpu_test_lines": 79,
+    "resource_probe_test_added_lines": 15,
+    "cmake_test_registration_added_lines": 3,
+    "code_delta_including_tests_and_registration": -10,
+    "documentation_excluded": true
+  },
+  "runtime_sources": [
+    {
+      "path": "runtime/scene/ending_auxiliary.c",
+      "before_lines": 132,
+      "after_lines": 137,
+      "before_sha256": "ec18cc184886d0a5d5ba2d114c40e374ca9d40d18d62cb4c42cc95df2aed842d",
+      "after_sha256": "5d351e7896603790328a7685e89e2edb179067c8784d6ea01bc581590fb1e30e"
+    },
+    {
+      "path": "runtime/scene/ending_auxiliary.h",
+      "before_lines": 34,
+      "after_lines": 38,
+      "before_sha256": "f278ada73dfdc982d294bf883a768cc96ae076992a9a221edaa2bd5dc873979c",
+      "after_sha256": "bb67a951c737675dbd2ac90fbaf653fb2d6f300c4f9f74ec94bdf9b9db9f6fe3"
+    },
+    {
+      "path": "runtime/scene/ending_gallery_control_internal.h",
+      "before_lines": 347,
+      "after_lines": 347,
+      "before_sha256": "48041cfa4cd2215049adb60456afb3f2367c40be953a3e123030f6867b6379df",
+      "after_sha256": "c044730f464e06003a3d8f2ca7ae316e197180eaab77fa9da2236b22d1de16ff"
+    },
+    {
+      "path": "runtime/scene/ending_gallery_presentation_internal.h",
+      "before_lines": 213,
+      "after_lines": 213,
+      "before_sha256": "7a40e6acce681700a37090f81edcf2af492ce8fa8919e96b02c23ca883962c7d",
+      "after_sha256": "a2008de53c1214db6b40fda145efe4ab3146ca5fa8cf764a9f708c87ebaae7b6"
+    },
+    {
+      "path": "runtime/scene/ending_normal_session.c",
+      "before_lines": 3484,
+      "after_lines": 3368,
+      "before_sha256": "2f3db4769efbedc634ce614cf1ea4d61ed707f001a64ee011fbecce36a5ef433",
+      "after_sha256": "460d5f8f3c1b8efd48ad21a1bfab4f6b709750e5e781a3596ae0f9df4325266b"
+    }
+  ],
+  "validation": {
+    "cpu": {
+      "build": "build/ending-bindings-cpu",
+      "sanitizers": [
+        "ASan",
+        "UBSan"
+      ],
+      "leak_sanitizer": false,
+      "tests": [
+        "ending-clip-write",
+        "ending-ui-frame",
+        "ending-ui-tail",
+        "ending-auxiliary",
+        "ending-auxiliary-state3"
+      ],
+      "passed": 5,
+      "checks": "实例隔离、保持素材不可变、无隐式选段/推进/矩阵发布、无效写入不改变状态，以及后续调度使用新连接。"
+    },
+    "selected_adapters": {
+      "before_build": "build/audit-gpu",
+      "after_build": "build/ending-bindings-gpu",
+      "same_summary": true,
+      "before": "PASS selected adapters entries10 manual40 restarts10 flashes10 uv20 cancels10 replay10 completion10 auxiliary10 rejects50 frames52702 state=0cbf9107a48cdd13 pcm=3c4be7cbc8c05cc6",
+      "after": "PASS selected adapters entries10 manual40 restarts10 flashes10 uv20 cancels10 replay10 completion10 auxiliary10 rejects50 frames52702 state=0cbf9107a48cdd13 pcm=3c4be7cbc8c05cc6",
+      "scope": "五组、两个变体，真实演员/UI/音频；包含显式完成、回放和跨加载器边界夹具。摘要比较只覆盖探针采样字段、局部闪烁回读和 PCM，不等于全状态或所有帧像素逐字节比较。"
+    },
+    "role_bindings": {
+      "summary": "PASS ending role bindings: profiles70, five loaders, six roles, release clear",
+      "additional_checks": "全部 30 份选择结局默认角色配置：选择控制器拒绝 slot32、无效 chain 与未知操作；通用 UI 接受 slot32 并拒绝 slot128，调用不推进演员状态。"
+    },
+    "stage_reload": "PASS stage reload entries5 boundary20 curtain10 frames1560 redraws70 pcm=a5e06f355843498f",
+    "ui_tail": "ending UI tail GPU/PCM PASS frames=800 draws=3520 samples=24868182 worst=1 redraws=100 named=305 chains=100 rgba=f29915bcad45cf7e state=ae2c42285cfc8ec8 pcm_samples=3072000 pcm=aef6eee5465dccb5 allocation-stable=1",
+    "gpu": "Apple M1 Pro / MoltenVK 1.4.2；GPU 探针在获得设备访问权限后运行。",
+    "logs": "build/validation/ending-binding-pilot",
+    "diff_check": "passed"
+  },
+  "input_policy": "原始 Data 保持只读；所有探针日志和临时分析输出位于独立 build 目录；未操作已有用户存档。",
+  "limits": [
+    "没有改写 game 层原版控制分支或新增脚本系统。",
+    "没有重新运行固定版本 EXE 的原指令 oracle。",
+    "没有做完整自然剧情遍历、Linux 或 Switch 实机验收。"
+  ]
+}

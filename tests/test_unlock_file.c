@@ -93,6 +93,8 @@ int main(void) {
   assert(bk_unlock_native_decode(&got, native, 40, e));
   same(&got, &expected);
   assert(bk_unlock_encode(&expected, bytes, e));
+  /* Frozen checksum from the original bitwise writer. */
+  assert(!memcmp(bytes + 24, "\xf7\xe6\xe7\xdc", 4));
   old = expected;
   for (unsigned i = 0; i < 72; ++i) {
     bytes[i] ^= 0x80;

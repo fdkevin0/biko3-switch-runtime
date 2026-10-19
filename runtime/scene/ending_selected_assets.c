@@ -24,64 +24,15 @@ static int fail(char e[256], const char *why) {
   snprintf(e, 256, "selected ending assets: %s", why);
   return 0;
 }
-static void destroy_actor(SelectedActor *p) {
-  bk_morph_group_destroy(p->morph);
-  bk_material_animation_destroy(p->animation);
-  bk_material_pose_destroy(p->materials);
-  bk_actor_pose_destroy(p->pose);
-  bk_clip_set_destroy(p->clips);
-  bk_model_destroy(p->model);
-}
 void bk_ending_selected_assets_destroy(BkEndingSelectedAssets *a) {
   if (!a) return;
   bk_actor_forest_destroy(a->forest);
   bk_ending_camera_assets_destroy(a->cameras);
   bk_eye_assets_destroy(a->eyes);
   bk_face_assets_destroy(a->face);
-  destroy_actor(&a->primary);
+  bk_ending_actor_destroy(&a->primary);
   bk_ending_background_assets_destroy(a->background_owner);
   free(a);
-}
-static int load_actor(SelectedActor *p, BkResourceStore *store,
-                       const char *pack, const char *name, char e[256]) {
-  BkBlob blob = {0};
-  int ok = 0;
-  if (bk_resources_read(store, pack, name, &blob, e) != BK_RESOURCE_OK) goto done;
-  p->clips = bk_clip_set_decode(blob.data, blob.size, e);
-  bk_blob_free(&blob);
-  if (!p->clips ||
-      bk_resources_read(store, pack, bk_clip_model_name(p->clips), &blob, e) != BK_RESOURCE_OK ||
-      bk_model_decode(blob.data, blob.size, &p->model, e) != BK_MODEL_OK)
-    goto done;
-  if (bk_model_chunk(p->model, "LIGA") || bk_model_chunk(p->model, "TEXA")) {
-    fail(e, "animated resource effect needs its own owner");
-    goto done;
-  }
-  p->materials = bk_material_pose_create(p->model, e);
-  if (!p->materials ||
-      (bk_model_chunk(p->model, "MATA") && !(p->animation = bk_material_animation_create(p->model, e))) ||
-      (bk_model_chunk(p->model, "MORP") && !(p->morph = bk_morph_group_create(p->model, e))))
-    goto done;
-  p->root = BK_MODEL_NONE;
-  for (uint32_t i = 0; i < p->model->frame_count; ++i)
-    if (p->model->frames[i].parent_index == BK_MODEL_NONE) {
-      if (p->root != BK_MODEL_NONE) {
-        fail(e, "multiple actor roots");
-        goto done;
-      }
-      p->root = i;
-    }
-  if (p->root == BK_MODEL_NONE) {
-    fail(e, "missing actor root");
-    goto done;
-  }
-  p->pose = bk_actor_pose_create_loaded(p->model, p->clips, p->root, (float[3]){0}, 0, e);
-  if (!p->pose || !bk_actor_pose_root_local(p->pose, p->model->frames[p->root].local, e))
-    goto done;
-  ok = 1;
-done:
-  bk_blob_free(&blob);
-  return ok;
 }
 static void snapshot(const SelectedActor *p, BkNodeReference *node) {
   memcpy(node->local, bk_actor_pose_local(p->pose, p->root), 64);
@@ -107,31 +58,14 @@ int bk_ending_selected_assets_advance(BkEndingSelectedAssets *a, unsigned actor,
                                       float seconds, char e[256]) {
   const SelectedActor *p = effect_actor(a, actor);
   if (!p) return fail(e, "missing primary/background effect owner");
-  BkPlaybackEffects effects;
-  int submitted;
-  if (!bk_actor_pose_advance_effects(p->pose, seconds, &effects, &submitted, e)) return 0;
-  if (!submitted) return 1;
-  if (effects.pose.blend && p->morph &&
-      !bk_morph_group_blend(p->morph, effects.pose.from, effects.pose.to,
-                              effects.pose.weight, NULL, 0, e)) return 0;
-  if (p->animation && !bk_material_animation_sample(
-          p->animation, effects.source, p->materials, e)) return 0;
-  return effects.pose.blend || !p->morph ||
-         bk_morph_group_sample(p->morph, effects.source, NULL, 0, e);
+  return bk_ending_actor_advance(p, seconds, e);
 }
 int bk_ending_selected_assets_advance_plain(BkEndingSelectedAssets *a,
                                              float seconds, BkClipPlainMode mode,
                                              char e[256]) {
   const SelectedActor *p = effect_actor(a, 0);
   if (!p) return fail(e, "missing primary controlled effect owner");
-  BkPlaybackEffects effects;
-  int submitted;
-  if (!bk_actor_pose_advance_plain(p->pose, seconds, mode,
-                                    &effects, &submitted, e)) return 0;
-  if (!submitted) return 1;
-  if (p->animation && !bk_material_animation_sample(
-          p->animation, effects.source, p->materials, e)) return 0;
-  return !p->morph || bk_morph_group_sample(p->morph, effects.source, NULL, 0, e);
+  return bk_ending_actor_advance_plain(p, seconds, mode, e);
 }
 static int motion_clip(const SelectedActor *p, BkClipState *state,
                          BkEndingSelectedMotionClip *out, char e[256]) {
@@ -243,7 +177,7 @@ BkEndingSelectedAssets *bk_ending_selected_assets_create(
   BkMenuCamera next_camera = *camera;
   BkEndingCameraPresets next_presets;
   uint32_t rng = *random;
-  if (!load_actor(&a->primary, store, config.pack, name, e)) goto bad;
+  if (!bk_ending_actor_load(&a->primary, store, config.pack, name, 1, e)) goto bad;
   const char *model_name = bk_clip_model_name(a->primary.clips);
   a->face = bk_face_assets_create_ending(store, "fambom", config.face,
                                           config.pack, a->primary.model, model_name, e);

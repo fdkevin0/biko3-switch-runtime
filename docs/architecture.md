@@ -21,6 +21,10 @@
 
 实际链接关系由 [CMakeLists.txt](../CMakeLists.txt)维护。CPU 的 core/resource/model/world/game/save 不直接依赖 libnx 或 Vulkan；scene 把 CPU 数据变成绘制快照，app 连接文件与平台服务。
 
+桌面键鼠、触摸和手柄输入由 `platform/sdl_input` 统一维护；macOS/Linux 各自保留窗口、焦点及菜单事件。结局角色的共同资源装配和效果推进由 `scene/ending_actor` 维护，挂接、选段及共享状态仍由各结局负责。普通角色可不创建材质/MORP 效果；辅助结局延迟调度 TEXA 的专用加载规则继续保留。
+
+结局的 chain/next/rewind 转换由 `scene/ending_auxiliary` 的 `bk_ending_clip_write` 共用；入口分别保留自己的槽位限制。UI 尾部回调借用场景，在实际调用时解析当前角色，不能在帧前缓存可能被同帧重载替换的角色指针。输入、时钟和 RNG 回调直接复用场景实现。
+
 ```mermaid
 flowchart TD
     App[app 根所有者] --> Platform[platform 设备与窗口]

@@ -22,70 +22,15 @@ static int fail(char error[256], const char *why) {
   snprintf(error, 256, "secondary ending assets: %s", why);
   return 0;
 }
-static void destroy_actor(SecondaryActor *actor) {
-  bk_morph_group_destroy(actor->morph);
-  bk_material_animation_destroy(actor->animation);
-  bk_material_pose_destroy(actor->materials);
-  bk_actor_pose_destroy(actor->pose);
-  bk_clip_set_destroy(actor->clips);
-  bk_model_destroy(actor->model);
-}
 void bk_ending_secondary_assets_destroy(BkEndingSecondaryAssets *a) {
   if (!a) return;
   bk_actor_forest_destroy(a->forest);
   bk_ending_camera_assets_destroy(a->cameras);
   bk_eye_assets_destroy(a->eyes);
   bk_face_assets_destroy(a->face);
-  destroy_actor(&a->primary);
+  bk_ending_actor_destroy(&a->primary);
   bk_ending_background_assets_destroy(a->background_owner);
   free(a);
-}
-static int load_actor(SecondaryActor *actor, BkResourceStore *store,
-                       const char *pack, const char *name, char error[256]) {
-  BkBlob blob = {0};
-  int ok = 0;
-  if (bk_resources_read(store, pack, name, &blob, error) != BK_RESOURCE_OK)
-    goto done;
-  actor->clips = bk_clip_set_decode(blob.data, blob.size, error);
-  bk_blob_free(&blob);
-  if (!actor->clips ||
-      bk_resources_read(store, pack, bk_clip_model_name(actor->clips), &blob,
-                          error) != BK_RESOURCE_OK ||
-      bk_model_decode(blob.data, blob.size, &actor->model, error) != BK_MODEL_OK)
-    goto done;
-  if (bk_model_chunk(actor->model, "LIGA") || bk_model_chunk(actor->model, "TEXA")) {
-    fail(error, "animated resource effect needs its own owner");
-    goto done;
-  }
-  actor->materials = bk_material_pose_create(actor->model, error);
-  if (!actor->materials ||
-      (bk_model_chunk(actor->model, "MATA") &&
-       !(actor->animation = bk_material_animation_create(actor->model, error))) ||
-      (bk_model_chunk(actor->model, "MORP") &&
-       !(actor->morph = bk_morph_group_create(actor->model, error))))
-    goto done;
-  actor->root = BK_MODEL_NONE;
-  for (uint32_t i = 0; i < actor->model->frame_count; ++i)
-    if (actor->model->frames[i].parent_index == BK_MODEL_NONE) {
-      if (actor->root != BK_MODEL_NONE) {
-        fail(error, "multiple actor roots");
-        goto done;
-      }
-      actor->root = i;
-    }
-  if (actor->root == BK_MODEL_NONE) {
-    fail(error, "missing actor root");
-    goto done;
-  }
-  actor->pose = bk_actor_pose_create_loaded(actor->model, actor->clips,
-                                            actor->root, (float[3]){0}, 0, error);
-  if (!actor->pose || !bk_actor_pose_root_local(actor->pose,
-                        actor->model->frames[actor->root].local, error))
-    goto done;
-  ok = 1;
-done:
-  bk_blob_free(&blob);
-  return ok;
 }
 static void snapshot(const SecondaryActor *actor, BkNodeReference *node) {
   memcpy(node->local, bk_actor_pose_local(actor->pose, actor->root), 64);
@@ -125,7 +70,7 @@ static BkEndingSecondaryAssets *create_assets(
   BkMenuCamera next_camera = *camera;
   BkEndingCameraPresets next_presets;
   uint32_t rng = *random;
-  if (!load_actor(&a->primary, store, "bk3_09", config.primary, error))
+  if (!bk_ending_actor_load(&a->primary, store, "bk3_09", config.primary, 1, error))
     goto bad;
   const char *model_name = bk_clip_model_name(a->primary.clips);
   a->face = bk_face_assets_create_ending(store, "fambom", config.face,
@@ -314,20 +259,7 @@ int bk_ending_secondary_assets_advance(BkEndingSecondaryAssets *a,
                                       char error[256]) {
   const SecondaryActor *p = effect_actor(a, actor);
   if (!p) return fail(error, "missing primary/background effect owner");
-  BkPlaybackEffects effects;
-  int submitted;
-  if (!bk_actor_pose_advance_effects(p->pose, seconds, &effects, &submitted, error))
-    return 0;
-  if (!submitted) return 1;
-  if (effects.pose.blend && p->morph &&
-      !bk_morph_group_blend(p->morph, effects.pose.from, effects.pose.to,
-                            effects.pose.weight, NULL, 0, error))
-    return 0;
-  if (p->animation && !bk_material_animation_sample(
-          p->animation, effects.source, p->materials, error))
-    return 0;
-  return effects.pose.blend || !p->morph ||
-         bk_morph_group_sample(p->morph, effects.source, NULL, 0, error);
+  return bk_ending_actor_advance(p, seconds, error);
 }
 BkMaterialPose *bk_ending_secondary_assets_materials(BkEndingSecondaryAssets *a,
                                                      unsigned actor) {

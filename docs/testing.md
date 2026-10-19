@@ -69,6 +69,12 @@ ASan/UBSan 使用完整默认构建，避免手写目标清单漏掉新注册的
 
 `ui-canvas` 检查逻辑画布及留边输入映射；原生桌面配置另有 `sdl-input` 和 macOS `platform-settings`，用确定性设备桩检查 HiDPI、轴归一化与真实启动配置顺序。真实资源的 `front-flow-probe`、`screenshot-probe`、`ending-draw-event-probe` 覆盖缩放、零步重绘和跨帧截图；这些检查不替代原生窗口或实机验收。范围和负对照见[引擎边界修复](../reports/engine-boundaries-2026-10-19.json)。
 
+`sdl-input` 还直接检查桌面共享实现的手柄热插拔、四手柄上限、按键边沿、多输入源选择和触摸/鼠标优先级。Python discovery 的 `test_ending_actor.py` 使用独立临时 PP，检查共享结局角色加载、原始根变换、效果开关，以及损坏资源或不支持的效果失败后的释放；不读取真实素材。
+
+`ending-clip-write` 检查共享结局描述符写入的失败校验、实例隔离及延迟调度：写入时不选段、不推进动画、不发布矩阵，后续推进才执行新连接。真实素材的 `ending-role-bindings-probe` 另检查选择结局 32 槽与通用 UI 128 槽的不同限制。
+
+`ending-role-bindings-probe` 还检查共享活动片段查询在五类加载器中的绑定，以及释放后或参数缺失时拒绝查询且不改写输出。回调合并、背景配置零初始化及只读剧情导出的本轮对照见[精简验证](../reports/simplification-2026-10-19.json)。
+
 ## 记录结果
 
 | 证据 | 可以说明什么 |

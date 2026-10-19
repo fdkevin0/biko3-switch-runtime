@@ -1,22 +1,10 @@
 #ifndef BK_SCENE_ENDING_BACKGROUND_ASSETS_H
 #define BK_SCENE_ENDING_BACKGROUND_ASSETS_H
-#include "model/material_animation.h"
-#include "model/morph_group.h"
-#include "resource/store.h"
-#include "world/actor_pose.h"
+#include "scene/ending_actor.h"
 
 typedef struct BkEndingBackgroundAssets BkEndingBackgroundAssets;
-/* Borrowed resource pointers. Only the enclosing owner releases them. The
- * same background survives a stage replacement and the previous GPU frame. */
-typedef struct {
-  BkModel *model;
-  BkClipSet *clips;
-  BkActorPose *pose;
-  BkMaterialPose *materials;
-  BkMaterialAnimation *animation;
-  BkMorphGroup *morph;
-  uint32_t root;
-} BkEndingBackgroundData;
+/* Borrowed view; the enclosing background owner retains and releases it. */
+typedef BkEndingActor BkEndingBackgroundData;
 
 /* Decode an actual bk3_03 actor, without global attachment, orientation or
  * clip selection. Those operations belong to the original loader boundary. */

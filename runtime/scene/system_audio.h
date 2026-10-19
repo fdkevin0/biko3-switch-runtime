@@ -21,6 +21,5 @@ BkSystemAudio *bk_system_audio_create_slot(BkResourceStore *, BkAudio *,
 int bk_system_audio_bind_volume(BkSystemAudio *, const int32_t *, char error[256]);
 int bk_system_audio_restart(BkSystemAudio *, char error[256]);
 void bk_system_audio_destroy(BkSystemAudio *);
-int bk_system_audio_wait(BkSystemAudio *, char error[256]);
 int bk_system_audio_stop(BkSystemAudio *, char error[256]);
 #endif

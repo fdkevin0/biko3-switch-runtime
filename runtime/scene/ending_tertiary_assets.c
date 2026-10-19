@@ -26,14 +26,6 @@ static int fail(char error[256], const char *why) {
   snprintf(error, 256, "tertiary ending assets: %s", why);
   return 0;
 }
-static void destroy_actor(TertiaryActor *p) {
-  bk_morph_group_destroy(p->morph);
-  bk_material_animation_destroy(p->animation);
-  bk_material_pose_destroy(p->materials);
-  bk_actor_pose_destroy(p->pose);
-  bk_clip_set_destroy(p->clips);
-  bk_model_destroy(p->model);
-}
 void bk_ending_tertiary_assets_destroy(BkEndingTertiaryAssets *a) {
   if (!a) return;
   bk_actor_forest_destroy(a->forest);
@@ -41,55 +33,9 @@ void bk_ending_tertiary_assets_destroy(BkEndingTertiaryAssets *a) {
   bk_ending_camera_assets_destroy(a->cameras);
   bk_eye_assets_destroy(a->eyes);
   bk_face_assets_destroy(a->face);
-  for (unsigned i = 0; i < 3; ++i) destroy_actor(&a->actors[i]);
+  for (unsigned i = 0; i < 3; ++i) bk_ending_actor_destroy(&a->actors[i]);
   bk_ending_background_assets_destroy(a->background_owner);
   free(a);
-}
-static int load_actor(TertiaryActor *p, BkResourceStore *store, const char *name,
-                       int effects, char error[256]) {
-  BkBlob blob = {0};
-  int ok = 0;
-  if (bk_resources_read(store, "bk3_11", name, &blob, error) != BK_RESOURCE_OK)
-    goto done;
-  p->clips = bk_clip_set_decode(blob.data, blob.size, error);
-  bk_blob_free(&blob);
-  if (!p->clips || bk_resources_read(store, "bk3_11", bk_clip_model_name(p->clips),
-      &blob, error) != BK_RESOURCE_OK ||
-      bk_model_decode(blob.data, blob.size, &p->model, error) != BK_MODEL_OK)
-    goto done;
-  if (bk_model_chunk(p->model, "LIGA") || bk_model_chunk(p->model, "TEXA")) {
-    fail(error, "animated resource effect needs its own owner");
-    goto done;
-  }
-  if (effects) {
-    p->materials = bk_material_pose_create(p->model, error);
-    if (!p->materials || (bk_model_chunk(p->model, "MATA") &&
-        !(p->animation = bk_material_animation_create(p->model, error))) ||
-        (bk_model_chunk(p->model, "MORP") &&
-        !(p->morph = bk_morph_group_create(p->model, error))))
-      goto done;
-  }
-  p->root = BK_MODEL_NONE;
-  for (uint32_t i = 0; i < p->model->frame_count; ++i)
-    if (p->model->frames[i].parent_index == BK_MODEL_NONE) {
-      if (p->root != BK_MODEL_NONE) {
-        fail(error, "multiple actor roots");
-        goto done;
-      }
-      p->root = i;
-    }
-  if (p->root == BK_MODEL_NONE) {
-    fail(error, "missing actor root");
-    goto done;
-  }
-  p->pose = bk_actor_pose_create_loaded(p->model, p->clips, p->root,
-                                         (float[3]){0}, 0, error);
-  if (!p->pose || !bk_actor_pose_root_local(p->pose, p->model->frames[p->root].local, error))
-    goto done;
-  ok = 1;
-done:
-  bk_blob_free(&blob);
-  return ok;
 }
 static void snapshot(const TertiaryActor *actor, BkNodeReference *node) {
   memcpy(node->local, bk_actor_pose_local(actor->pose, actor->root), 64);
@@ -160,7 +106,7 @@ static BkEndingTertiaryAssets *create_assets(
   BkEndingCameraPresets next_presets;
   uint32_t rng = *random;
   TertiaryActor *primary = &a->actors[0];
-  if (!load_actor(primary, store, config.primary, 1, error)) goto bad;
+  if (!bk_ending_actor_load(primary, store, "bk3_11", config.primary, 1, error)) goto bad;
   const char *model_name = bk_clip_model_name(primary->clips);
   a->face = bk_face_assets_create_ending(store, "fambom", config.face, "bk3_11",
                                          primary->model, model_name, error);
@@ -176,7 +122,7 @@ static BkEndingTertiaryAssets *create_assets(
   if (!a->eyes || !a->cameras) goto bad;
   if (group == 2)
     for (unsigned i = 1; i < 3; ++i)
-      if (!load_actor(&a->actors[i], store, config.auxiliaries[i - 1], 0, error))
+      if (!bk_ending_actor_load(&a->actors[i], store, "bk3_11", config.auxiliaries[i - 1], 0, error))
         goto bad;
   if (retained) {
     a->background_owner = bk_ending_background_assets_retain(retained);
@@ -350,15 +296,7 @@ int bk_ending_tertiary_assets_advance(BkEndingTertiaryAssets *a, unsigned role,
     return bk_bom_dual_assets_advance(a->bom, role, seconds, error);
   if (role == BK_ENDING_TERTIARY_ASSET_BACKGROUND)
     return bk_ending_background_assets_advance(a->background_owner, seconds, error);
-  BkPlaybackEffects effects;
-  int submitted;
-  if (!bk_actor_pose_advance_effects(p->pose, seconds, &effects, &submitted, error)) return 0;
-  if (!submitted) return 1;
-  if (effects.pose.blend && p->morph && !bk_morph_group_blend(p->morph,
-      effects.pose.from, effects.pose.to, effects.pose.weight, NULL, 0, error)) return 0;
-  if (p->animation && !bk_material_animation_sample(p->animation, effects.source, p->materials, error))
-    return 0;
-  return effects.pose.blend || !p->morph || bk_morph_group_sample(p->morph, effects.source, NULL, 0, error);
+  return bk_ending_actor_advance(p, seconds, error);
 }
 int bk_ending_tertiary_assets_advance_plain(BkEndingTertiaryAssets *a, unsigned role,
                                            float seconds, BkClipPlainMode mode,
@@ -367,13 +305,7 @@ int bk_ending_tertiary_assets_advance_plain(BkEndingTertiaryAssets *a, unsigned 
   const TertiaryActor *p = effect_actor(a, role);
   if (!p) return fail(error, "missing controlled actor");
   if (role) return bk_bom_dual_assets_advance_plain(a->bom, role, seconds, mode, error);
-  BkPlaybackEffects effects;
-  int submitted;
-  if (!bk_actor_pose_advance_plain(p->pose, seconds, mode, &effects, &submitted, error)) return 0;
-  if (!submitted) return 1;
-  if (p->animation && !bk_material_animation_sample(p->animation, effects.source, p->materials, error))
-    return 0;
-  return !p->morph || bk_morph_group_sample(p->morph, effects.source, NULL, 0, error);
+  return bk_ending_actor_advance_plain(p, seconds, mode, error);
 }
 BkMaterialPose *bk_ending_tertiary_assets_materials(BkEndingTertiaryAssets *a, unsigned role) {
   const TertiaryActor *p = effect_actor(a, role);

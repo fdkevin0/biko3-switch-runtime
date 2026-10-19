@@ -2,12 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-typedef struct {
-  BkModel *model;
-  BkClipSet *clips;
-  BkActorPose *pose;
-  uint32_t root;
-} Actor;
+typedef BkEndingActor Actor;
 struct BkEndingNormalAssets {
   BkEndingNormalConfig config;
   const char *background_name;
@@ -35,11 +30,6 @@ static int fail(char e[256], const char *why) {
   snprintf(e, 256, "normal ending assets: %s", why);
   return 0;
 }
-static void destroy_actor(Actor *a) {
-  bk_actor_pose_destroy(a->pose);
-  bk_clip_set_destroy(a->clips);
-  bk_model_destroy(a->model);
-}
 void bk_ending_normal_assets_destroy(BkEndingNormalAssets *a) {
   if (!a)
     return;
@@ -49,50 +39,9 @@ void bk_ending_normal_assets_destroy(BkEndingNormalAssets *a) {
   bk_eye_assets_destroy(a->eyes);
   bk_face_assets_destroy(a->face);
   for (unsigned i = 0; i < 2; i++)
-    destroy_actor(&a->actors[i]);
+    bk_ending_actor_destroy(&a->actors[i]);
   bk_ending_background_assets_destroy(a->background);
   free(a);
-}
-static int load_actor(Actor *a, BkResourceStore *s, const char *pack,
-                      const char *name, char e[256]) {
-  BkBlob raw = {0};
-  int ok = 0;
-  if (bk_resources_read(s, pack, name, &raw, e) != BK_RESOURCE_OK)
-    goto done;
-  a->clips = bk_clip_set_decode(raw.data, raw.size, e);
-  bk_blob_free(&raw);
-  if (!a->clips || bk_resources_read(s, pack, bk_clip_model_name(a->clips),
-                                     &raw, e) != BK_RESOURCE_OK)
-    goto done;
-  if (bk_model_decode(raw.data, raw.size, &a->model, e) != BK_MODEL_OK)
-    goto done;
-  /* Additional primary/background effect types need actual owners. */
-  if (bk_model_chunk(a->model, "LIGA") || bk_model_chunk(a->model, "TEXA")) {
-    fail(e, "unsupported animated resource effect");
-    goto done;
-  }
-  a->root = BK_MODEL_NONE;
-  for (uint32_t i = 0; i < a->model->frame_count; i++)
-    if (a->model->frames[i].parent_index == BK_MODEL_NONE) {
-      if (a->root != BK_MODEL_NONE) {
-        fail(e, "multiple actor roots");
-        goto done;
-      }
-      a->root = i;
-    }
-  if (a->root == BK_MODEL_NONE) {
-    fail(e, "missing actor root");
-    goto done;
-  }
-  a->pose = bk_actor_pose_create_loaded(a->model, a->clips, a->root,
-                                        (float[3]){0}, 0, e);
-  if (!a->pose ||
-      !bk_actor_pose_root_local(a->pose, a->model->frames[a->root].local, e))
-    goto done;
-  ok = 1;
-done:
-  bk_blob_free(&raw);
-  return ok;
 }
 static void snapshot(Actor *a, BkNodeReference *node) {
   memcpy(node->local, bk_actor_pose_local(a->pose, a->root), 64);
@@ -137,8 +86,8 @@ create_assets(BkResourceStore *store, unsigned group,
   BkMenuCamera next_camera = *camera;
   BkEndingCameraPresets next_presets;
   uint32_t rng = *random;
-  if (!load_actor(&a->actors[0], store, "bk3_08", config.primary, e) ||
-      !load_actor(&a->actors[1], store, "bk3_08", config.auxiliary, e))
+  if (!bk_ending_actor_load(&a->actors[0], store, "bk3_08", config.primary, 0, e) ||
+      !bk_ending_actor_load(&a->actors[1], store, "bk3_08", config.auxiliary, 0, e))
     goto bad;
   a->face = bk_face_assets_create_ending(
       store, "fambom", config.face, "bk3_08", a->actors[0].model,
@@ -166,8 +115,7 @@ create_assets(BkResourceStore *store, unsigned group,
       if (group != 1) fail(e, "cannot retain outer background");
       goto bad;
     }
-    a->actors[2] = (Actor){background->model, background->clips,
-                           background->pose, background->root};
+    a->actors[2] = *background;
   }
   if (bk_resources_read(store, "fambom", config.bom, &raw, e) !=
           BK_RESOURCE_OK ||
@@ -292,7 +240,7 @@ int bk_ending_normal_assets_load_background(BkEndingNormalAssets *a,
   }
   /* Forest now borrows this actor even if a later stateful step fails. */
   a->background = background;
-  a->actors[2] = (Actor){data->model, data->clips, data->pose, data->root};
+  a->actors[2] = *data;
   a->background_state = 2;
   if (index != 4)
     return fail(e, "background registry changed outside owner");

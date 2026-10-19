@@ -23,21 +23,13 @@ static int fail(char error[256], const char *why) {
   snprintf(error, 256, "auxiliary ending assets: %s", why);
   return 0;
 }
-static void destroy_actor(AuxiliaryActor *actor) {
-  bk_morph_group_destroy(actor->morph);
-  bk_material_animation_destroy(actor->animation);
-  bk_material_pose_destroy(actor->materials);
-  bk_actor_pose_destroy(actor->pose);
-  bk_clip_set_destroy(actor->clips);
-  bk_model_destroy(actor->model);
-}
 void bk_ending_auxiliary_assets_destroy(BkEndingAuxiliaryAssets *a) {
   if (!a) return;
   bk_actor_forest_destroy(a->forest);
   bk_ending_camera_assets_destroy(a->cameras);
   bk_eye_assets_destroy(a->eyes);
   bk_face_assets_destroy(a->face);
-  destroy_actor(&a->primary);
+  bk_ending_actor_destroy(&a->primary);
   bk_ending_background_assets_destroy(a->background_owner);
   free(a);
 }
@@ -324,20 +316,7 @@ int bk_ending_auxiliary_assets_advance(BkEndingAuxiliaryAssets *a,
                                       char error[256]) {
   const AuxiliaryActor *p = effect_actor(a, actor);
   if (!p) return fail(error, "missing primary/background effect owner");
-  BkPlaybackEffects effects;
-  int submitted;
-  if (!bk_actor_pose_advance_effects(p->pose, seconds, &effects, &submitted, error))
-    return 0;
-  if (!submitted) return 1;
-  if (effects.pose.blend && p->morph &&
-      !bk_morph_group_blend(p->morph, effects.pose.from, effects.pose.to,
-                            effects.pose.weight, NULL, 0, error))
-    return 0;
-  if (p->animation && !bk_material_animation_sample(
-          p->animation, effects.source, p->materials, error))
-    return 0;
-  return effects.pose.blend || !p->morph ||
-         bk_morph_group_sample(p->morph, effects.source, NULL, 0, error);
+  return bk_ending_actor_advance(p, seconds, error);
 }
 int bk_ending_auxiliary_assets_advance_plain(BkEndingAuxiliaryAssets *a,
                                              float seconds,
@@ -345,15 +324,7 @@ int bk_ending_auxiliary_assets_advance_plain(BkEndingAuxiliaryAssets *a,
                                              char error[256]) {
   const AuxiliaryActor *p = effect_actor(a, 0);
   if (!p) return fail(error, "missing primary plain effect owner");
-  BkPlaybackEffects effects;
-  int submitted;
-  if (!bk_actor_pose_advance_plain(p->pose, seconds, mode, &effects,
-                                   &submitted, error)) return 0;
-  if (!submitted) return 1;
-  if (p->animation && !bk_material_animation_sample(
-          p->animation, effects.source, p->materials, error)) return 0;
-  return !p->morph || bk_morph_group_sample(p->morph, effects.source,
-                                             NULL, 0, error);
+  return bk_ending_actor_advance_plain(p, seconds, mode, error);
 }
 BkMaterialPose *bk_ending_auxiliary_assets_materials(BkEndingAuxiliaryAssets *a,
                                                      unsigned actor) {

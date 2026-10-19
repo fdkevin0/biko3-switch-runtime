@@ -51,6 +51,8 @@ int main(void) {
   assert(!memcmp(&bank, &out, sizeof(bank)));
   assert(bk_checkpoint_encode(&bank, 4, bytes, e));
   memcpy(saved, bytes, 592);
+  /* Frozen checksum from the original bitwise writer. */
+  assert(!memcmp(bytes + 24, "\x04\xec\x1f\x9b", 4));
   assert(bk_checkpoint_native_encode(&bank, native, e));
   assert(bk_checkpoint_native_decode(&out, native, 560, e));
   assert(!memcmp(&bank, &out, sizeof(bank)));

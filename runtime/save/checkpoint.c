@@ -1,6 +1,7 @@
 #include "save/checkpoint.h"
 #include <stdio.h>
 #include <string.h>
+#include <zlib.h>
 static int fail(char *e, const char *s) {
   snprintf(e, 256, "checkpoint: %s", s);
   return 0;
@@ -127,16 +128,8 @@ int bk_checkpoint_native_decode(BkCheckpointBank *b, const void *in, size_t n,
   native_xor(tmp);
   return records_read(b, tmp, e);
 }
-static uint32_t crc32(uint32_t crc, const uint8_t *p, size_t n) {
-  while (n--) {
-    crc ^= *p++;
-    for (unsigned j = 0; j < 8; ++j)
-      crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
-  }
-  return crc;
-}
 static uint32_t checksum(const uint8_t *p) {
-  return ~crc32(crc32(0xffffffffu, p, 24), p + 32, 560);
+  return (uint32_t)crc32(crc32(0, p, 24), p + 32, 560);
 }
 int bk_checkpoint_encode(const BkCheckpointBank *b, unsigned group,
                          uint8_t out[592], char e[256]) {

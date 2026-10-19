@@ -47,9 +47,6 @@ void bk_system_audio_destroy(BkSystemAudio *a) {
     free(a);
   }
 }
-int bk_system_audio_wait(BkSystemAudio *a, char error[256]) {
-  return bk_system_audio_restart(a, error);
-}
 int bk_system_audio_bind_volume(BkSystemAudio *a, const int32_t *master, char error[256]) {
   if (!a || (master && (*master < -10000 || *master > 0))) {
     snprintf(error,256,"system audio: invalid shared volume");return 0;

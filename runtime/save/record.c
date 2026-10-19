@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zlib.h>
 static int fail(char e[256], const char *why) {
   snprintf(e, 256, "ending record storage: %s", why); return 0;
 }
@@ -43,16 +44,8 @@ static void unpack(const BkRecordView *v, const uint8_t *p, uint32_t mask) {
     uint32_t word = get32(p) ^ mask; memcpy(v[g].count, &word, 4); p += 4;
   }
 }
-static uint32_t crc32(uint32_t crc, const uint8_t *p, size_t n) {
-  while (n--) {
-    crc ^= *p++;
-    for (unsigned j = 0; j < 8; ++j)
-      crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
-  }
-  return crc;
-}
 static uint32_t checksum(const uint8_t *p) {
-  return ~crc32(crc32(0xffffffffu, p, 24), p + 32, BK_RECORD_NATIVE_BYTES);
+  return (uint32_t)crc32(crc32(0, p, 24), p + 32, BK_RECORD_NATIVE_BYTES);
 }
 int bk_record_validate(const void *in, size_t n, char e[256]) {
   if (!in || n != BK_RECORD_FILE_BYTES) return fail(e, "invalid file length");

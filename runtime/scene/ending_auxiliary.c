@@ -16,9 +16,8 @@ static int active(void *p, int32_t *slot, char e[256]) {
   *slot = clock.slot;
   return 1;
 }
-static int write_clip(void *p, unsigned slot, BkEndingClipWrite kind,
-                      int32_t value, char e[256]) {
-  Context *c = p;
+int bk_ending_clip_write(BkActorPose *primary, unsigned slot,
+                          BkEndingClipWrite kind, int32_t value, char e[256]) {
   BkClipEdit edit = {.slot = slot};
   switch (kind) {
   case BK_ENDING_CLIP_CHAIN:
@@ -31,7 +30,7 @@ static int write_clip(void *p, unsigned slot, BkEndingClipWrite kind,
     break;
   case BK_ENDING_CLIP_REWIND: {
     BkClipTiming timing;
-    if (!bk_actor_pose_timing(c->services->primary, slot, &timing)) {
+    if (!bk_actor_pose_timing(primary, slot, &timing)) {
       snprintf(e, 256, "ending auxiliary: missing source slot%u", slot);
       return 0;
     }
@@ -40,9 +39,15 @@ static int write_clip(void *p, unsigned slot, BkEndingClipWrite kind,
     break;
   }
   default:
+    snprintf(e, 256, "ending clip: unknown descriptor write");
     return 0;
   }
-  return bk_actor_pose_edit_clips(c->services->primary, &edit, 1, e);
+  return bk_actor_pose_edit_clips(primary, &edit, 1, e);
+}
+static int write_clip(void *p, unsigned slot, BkEndingClipWrite kind,
+                      int32_t value, char e[256]) {
+  return bk_ending_clip_write(((Context *)p)->services->primary, slot,
+                               kind, value, e);
 }
 static int request(void *p, unsigned slot, char e[256]) {
   Context *c = p;

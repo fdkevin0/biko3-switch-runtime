@@ -136,7 +136,7 @@ static int stage_profile(BkRenderer *renderer, BkResourceStore *store,
                                            &s->previous_flow, &bindings));
     BkEndingReloadOps ops = {s, ui_reload_load, stage_release,
         ui_reload_final_image, ui_reload_leave, ui_reload_lighting,
-        ui_reload_schedule, ui_reload_present, ui_reload_status, ui_reload_pause};
+        ui_reload_schedule, scene_audio_present, scene_audio_status, scene_audio_pause};
     s->state->next_mode = to_normal;
     s->common->action = 6;
     s->common->blocked = 1;

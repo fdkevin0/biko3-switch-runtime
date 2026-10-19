@@ -72,7 +72,7 @@ int bk_npc_event_audio_apply(BkNpcEventAudio *a, const BkNpcSpatialEffects *e,
                        error))
       return 0;
   }
-  if (e->route.point.play_wait_sound && !bk_system_audio_wait(a->system, error))
+  if (e->route.point.play_wait_sound && !bk_system_audio_restart(a->system, error))
     return 0;
   return bk_area_audio_route(a->area, &route, error);
 }

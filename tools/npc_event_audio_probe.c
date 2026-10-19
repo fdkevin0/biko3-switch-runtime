@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
       }
     }
     if (frame % 31 == 0) {
-      CHECK(bk_system_audio_wait(system, error));
+      CHECK(bk_system_audio_restart(system, error));
       play(&sink, 2, pcm[0], -400, 0);
       waits++;
     }

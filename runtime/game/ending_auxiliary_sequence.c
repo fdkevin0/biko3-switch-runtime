@@ -56,17 +56,9 @@ static int media_busy(const BkEndingAuxiliarySequenceOps *o, unsigned owner,
 
 static int effect_busy(const BkEndingAuxiliarySequenceOps *o, unsigned effect,
                        int *busy_out, char e[256]) {
-  int present = 0;
   if (effect >= BK_ENDING_EFFECTS)
     return fail(e, "effect table index is outside the ending bank");
-  CALL(present, effect + 2, &present, e);
-  *busy_out = 0;
-  if (present) {
-    BkEndingAudioCall call = {
-        .operation = BK_ENDING_AUDIO_STATUS, .slot = effect + 2};
-    CALL(audio, &call, busy_out, e);
-  }
-  return 1;
+  return media_busy(o, effect + 2, busy_out, e);
 }
 
 static int effect_play(const BkEndingAuxiliarySequenceBindings *b,

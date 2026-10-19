@@ -701,74 +701,47 @@ static int ui_voice_playing(void *context, int *playing, char e[256]) {
                               s->state->auxiliary.selection, &call, playing, e);
 }
 
-typedef struct {
-  EndingNormalScene *scene;
-} EndingUiTailContext;
-
-static int ui_tail_active(void *context, int32_t *slot, char e[256]) {
-  EndingUiTailContext *c = context;
+static int scene_active(void *context, int32_t *slot, char e[256]) {
+  EndingNormalScene *s = context;
   BkClipState state;
-  if (!c || !c->scene || !slot ||
-      !bk_actor_pose_state(scene_primary(c->scene), &state))
-    return fail(e, "ending UI active clip is unavailable");
+  if (!s || !slot ||
+      !bk_actor_pose_state(scene_primary(s), &state))
+    return fail(e, "ending active clip is unavailable");
   *slot = (int32_t)state.slot;
   return 1;
 }
 
 static int ui_tail_write(void *context, unsigned slot, BkEndingClipWrite kind,
                          int32_t value, char e[256]) {
-  EndingUiTailContext *c = context;
+  EndingNormalScene *s = context;
   BkActorPose *primary;
-  BkClipEdit edit = {.slot = slot};
-  if (!c || !c->scene || !(primary = scene_primary(c->scene)))
+  if (!s || !(primary = scene_primary(s)))
     return fail(e, "ending UI clip owner is missing");
-  switch (kind) {
-  case BK_ENDING_CLIP_CHAIN:
-    edit.fields = BK_CLIP_EDIT_CHAIN;
-    edit.chain = value;
-    break;
-  case BK_ENDING_CLIP_NEXT:
-    edit.fields = BK_CLIP_EDIT_NEXT;
-    edit.next = value;
-    break;
-  case BK_ENDING_CLIP_REWIND: {
-    BkClipTiming timing;
-    if (!bk_actor_pose_timing(primary, slot, &timing))
-      return fail(e, "ending UI rewind clip is missing");
-    edit.fields = BK_CLIP_EDIT_SOURCE;
-    edit.source = timing.start;
-    break;
-  }
-  default:
-    return fail(e, "unknown ending UI clip write");
-  }
-  return bk_actor_pose_edit_clips(primary, &edit, 1, e);
+  return bk_ending_clip_write(primary, slot, kind, value, e);
 }
 
 static int ui_tail_request(void *context, unsigned slot, char e[256]) {
-  EndingUiTailContext *c = context;
-  BkActorPose *primary =
-      c ? scene_primary(c->scene) : NULL;
+  EndingNormalScene *s = context;
+  BkActorPose *primary = s ? scene_primary(s) : NULL;
   if (!primary)
     return fail(e, "ending UI clip request owner is missing");
   return bk_actor_pose_request_mode(primary, slot, BK_CLIP_REQUEST_CONFIGURED,
                                     e);
 }
 
-static int ui_tail_audio(void *context, const BkEndingAudioCall *call,
+static int scene_audio(void *context, const BkEndingAudioCall *call,
                          int *playing, char e[256]) {
-  EndingUiTailContext *c = context;
-  EndingNormalScene *s = c ? c->scene : NULL;
+  EndingNormalScene *s = context;
   if (!s || !s->audio || !call || !playing)
-    return fail(e, "ending UI audio owner is missing");
+    return fail(e, "ending audio owner is missing");
   return bk_ending_audio_call(s->audio, s->state->frame.group,
                               s->state->auxiliary.variant,
                               s->state->auxiliary.selection, call, playing, e);
 }
 
 static int ui_tail_eyes(void *context, unsigned slot, char e[256]) {
-  EndingUiTailContext *c = context;
-  BkEyeAssets *eyes = c ? scene_eyes(c->scene) : NULL;
+  EndingNormalScene *s = context;
+  BkEyeAssets *eyes = s ? scene_eyes(s) : NULL;
   if (!eyes)
     return fail(e, "ending UI eye owner is missing");
   return bk_eye_assets_select(eyes, slot, e);
@@ -776,8 +749,7 @@ static int ui_tail_eyes(void *context, unsigned slot, char e[256]) {
 
 static int ui_tail_speech(void *context, unsigned slot, const char *name,
                           int32_t volume, char e[256]) {
-  EndingUiTailContext *c = context;
-  EndingNormalScene *s = c ? c->scene : NULL;
+  EndingNormalScene *s = context;
   if (!s || !s->audio)
     return fail(e, "ending UI speech owner is missing");
   return bk_ending_audio_speech(s->audio, slot, name, volume, e);
@@ -944,33 +916,33 @@ static int ui_reload_schedule(void *context, uint8_t target, uint8_t mode,
   return s->flow.schedule(s->flow.context, target, mode, e);
 }
 
-static int ui_reload_present(void *context, unsigned slot, int *present,
+static int scene_audio_present(void *context, unsigned slot, int *present,
                              char e[256]) {
   EndingNormalScene *s = context;
   if (!s || !s->audio || !present)
-    return fail(e, "ending reload audio owner is missing");
+    return fail(e, "ending audio owner is missing");
   return bk_ending_audio_present(s->audio, slot, present)
              ? 1
-             : fail(e, "ending reload audio slot is unavailable");
+             : fail(e, "ending audio slot is unavailable");
 }
 
-static int ui_reload_status(void *context, unsigned slot, int *playing,
+static int scene_audio_status(void *context, unsigned slot, int *playing,
                             char e[256]) {
   EndingNormalScene *s = context;
   BkEndingAudioCall call = {.operation = BK_ENDING_AUDIO_STATUS, .slot = slot};
   if (!s || !s->audio || !playing || slot >= BK_ENDING_SOUND_BUFFERS)
-    return fail(e, "ending reload audio slot is unavailable");
+    return fail(e, "ending audio slot is unavailable");
   return bk_ending_audio_call(s->audio, s->state->frame.group,
                               s->state->auxiliary.variant,
                               s->state->auxiliary.selection, &call, playing, e);
 }
 
-static int ui_reload_pause(void *context, unsigned slot, char e[256]) {
+static int scene_audio_pause(void *context, unsigned slot, char e[256]) {
   EndingNormalScene *s = context;
   BkEndingAudioCall call = {.operation = BK_ENDING_AUDIO_PAUSE, .slot = slot};
   int playing = 0;
   if (!s || !s->audio || slot >= BK_ENDING_SOUND_BUFFERS)
-    return fail(e, "ending reload pause slot is unavailable");
+    return fail(e, "ending pause slot is unavailable");
   return bk_ending_audio_call(s->audio, s->state->frame.group,
                               s->state->auxiliary.variant,
                               s->state->auxiliary.selection, &call, &playing, e);
@@ -1032,14 +1004,13 @@ static int prepare_ui_frame(EndingNormalScene *s, float seconds, unsigned width,
                             unsigned height, char e[256]) {
   BkEndingStateUiViews views;
   BkEndingUiFrameBindings bindings;
-  EndingUiTailContext tail_context = {s};
-  BkEndingUiTailOps tail = {{&tail_context, ui_tail_active, ui_tail_write,
-                             ui_tail_request, ui_tail_audio, ui_tail_eyes},
+  BkEndingUiTailOps tail = {{s, scene_active, ui_tail_write,
+                             ui_tail_request, scene_audio, ui_tail_eyes},
                             ui_tail_speech};
   BkEndingReloadOps reload = {
       s,          ui_reload_load,       ui_reload_release,
       ui_reload_final_image, ui_reload_leave, ui_reload_lighting,
-      ui_reload_schedule, ui_reload_present, ui_reload_status, ui_reload_pause};
+      ui_reload_schedule, scene_audio_present, scene_audio_status, scene_audio_pause};
   BkEndingUiFrameOps ops = {s, ui_position, ui_motion, ui_key,
                             ui_voice_playing, reload, tail};
   if (!s || !s->ui_render || !s->ui_batch || !s->ui_curtain ||
@@ -1133,18 +1104,6 @@ static int auxiliary_state4_status(void *context, unsigned owner, int *playing,
   return bk_ending_audio_call(s->audio, s->state->frame.group,
                               s->state->auxiliary.variant,
                               s->state->auxiliary.selection, &call, playing, e);
-}
-
-/* State5/6/7 reuses the same ending mixer but addresses effect slots2..46.
- * Keep that wider bank service separate from state4's two speech-owner API. */
-static int auxiliary_sequence_present(void *context, unsigned owner,
-                                      int *present, char e[256]) {
-  EndingNormalScene *s = context;
-  if (!s || !s->audio || !present || owner >= BK_ENDING_SOUND_BUFFERS)
-    return fail(e, "auxiliary sequence media owner is unavailable");
-  return bk_ending_audio_present(s->audio, owner, present)
-             ? 1
-             : fail(e, "auxiliary sequence media slot is unavailable");
 }
 
 static int auxiliary_state4_expression(void *context, int32_t a, int32_t b,
@@ -1276,21 +1235,11 @@ static int auxiliary_state8_target(void *context, float position[3],
   return 1;
 }
 
-static int auxiliary_state1_audio(void *context, const BkEndingAudioCall *call,
-                                  int *playing, char e[256]) {
-  EndingNormalScene *s = context;
-  if (!s || !s->audio || !call || !playing)
-    return fail(e, "auxiliary state1 audio owner is unavailable");
-  return bk_ending_audio_call(s->audio, s->state->frame.group,
-                              s->state->auxiliary.variant,
-                              s->state->auxiliary.selection, call, playing, e);
-}
-
-static int auxiliary_state1_random(void *context, int32_t *result,
-                                   char e[256]) {
+static int scene_random(void *context, int32_t *result,
+                         char e[256]) {
   EndingNormalScene *s = context;
   if (!s || !s->random || !result)
-    return fail(e, "auxiliary state1 RNG owner is unavailable");
+    return fail(e, "ending RNG owner is unavailable");
   *result = (int32_t)bk_random_next(s->random);
   return 1;
 }
@@ -1385,15 +1334,6 @@ static int auxiliary_sequence_restart(void *context, unsigned slot,
   return bk_actor_pose_select(primary, slot, 0, e);
 }
 
-static int auxiliary_sequence_timing(void *context, unsigned slot,
-                                      BkEndingClipTiming *out, char e[256]) {
-  BkClipTiming native;
-  if (!out || !auxiliary_state3_native_timing(context, slot, &native, e))
-    return 0;
-  *out = (BkEndingClipTiming){native.start, native.end, native.source};
-  return 1;
-}
-
 static int auxiliary_sequence_special_audio(void *context, int32_t volume,
                                             char e[256]) {
   EndingNormalScene *s = context;
@@ -1411,16 +1351,6 @@ static int auxiliary_sequence_special_audio(void *context, int32_t volume,
   return bk_ending_audio_call(s->audio, s->state->frame.group,
                               s->state->auxiliary.variant, 0, &call, &ignored,
                               e);
-}
-
-static int auxiliary_state3_active(void *context, int32_t *slot,
-                                   char e[256]) {
-  EndingNormalScene *s = context;
-  BkClipState state;
-  if (!s || !slot || !bk_actor_pose_state(scene_primary(s), &state))
-    return fail(e, "auxiliary state3 active clip is unavailable");
-  *slot = state.slot;
-  return 1;
 }
 
 static int auxiliary_state3_source(void *context, unsigned slot, float source,
@@ -1454,15 +1384,6 @@ static int auxiliary_state3_rewind(void *context, unsigned slot, char e[256]) {
   if (!primary || slot >= BK_CLIP_SLOTS)
     return fail(e, "auxiliary state3 source rewind owner is unavailable");
   return bk_actor_pose_reset_sources(primary, &slot, 1, e);
-}
-
-static int auxiliary_state3_random(void *context, int32_t *value,
-                                   char e[256]) {
-  EndingNormalScene *s = context;
-  if (!s || !s->random || !value)
-    return fail(e, "auxiliary state3 RNG owner is unavailable");
-  *value = (int32_t)bk_random_next(s->random);
-  return 1;
 }
 
 static int auxiliary_state3_effect(void *context, unsigned effect,
@@ -1554,7 +1475,7 @@ static int auxiliary_state3_child(void *context,
       &s->state->retained.stage4.bytes_6c7f60[0]};
   BkEndingAuxiliaryChildOps ops = {
       s,
-      auxiliary_state3_active,
+      scene_active,
       auxiliary_state3_source,
       auxiliary_state3_end,
       auxiliary_state3_rewind,
@@ -1564,7 +1485,7 @@ static int auxiliary_state3_child(void *context,
       auxiliary_state1_request,
       auxiliary_state4_expression,
       auxiliary_state1_voice,
-      auxiliary_state3_random,
+      scene_random,
       auxiliary_state3_timing,
       auxiliary_state3_effect_present,
       auxiliary_state3_effect_status,
@@ -1574,55 +1495,6 @@ static int auxiliary_state3_child(void *context,
       s->effect_volume};
   return bk_ending_auxiliary_state3_child_step(&bindings, input, &ops, e);
 }
-
-static int selected_key(void *context, unsigned code, unsigned mode,
-                        uint32_t *result, char e[256]);
-static int selected_raw_key(void *context, unsigned code, uint32_t *result,
-                            char e[256]);
-static int selected_audio(void *context, const BkEndingAudioCall *call,
-                          int *playing, char e[256]);
-static int selected_load(void *context, unsigned slot, const char *name,
-                         char e[256]);
-static int selected_expression(void *context, int32_t a, int32_t b,
-                               int32_t mode, char e[256]);
-static int selected_active(void *context, int32_t *slot, char e[256]);
-static int selected_request(void *context, unsigned slot, char e[256]);
-static int selected_write(void *context, unsigned slot, BkEndingClipWrite kind,
-                          int32_t value, char e[256]);
-static int selected_target(void *context, unsigned node, float position[3],
-                           char e[256]);
-static int selected_camera(void *context, BkEndingOpeningCamera kind,
-                           int32_t choice, const uint32_t offset[3],
-                           uint32_t extra, uint32_t *result, char e[256]);
-static int selected_manual(void *context, int32_t proposed, int32_t *accepted,
-                           char e[256]);
-static int selected_pick(void *context, const float pointer[2], int32_t *result,
-                         char e[256]);
-static int selected_choose(void *context, const int32_t point[2], int32_t *result,
-                           char e[256]);
-static int selected_begin(void *context, char e[256]);
-static int selected_action(void *context, const BkEndingFrameInput *input,
-                           float seconds, char e[256]);
-static int selected_random(void *context, int32_t *result, char e[256]);
-static int selected_clip(void *context, unsigned slot,
-                         BkEndingSelectedMotionClip *out, char e[256]);
-static int selected_source(void *context, unsigned slot, float source,
-                           char e[256]);
-static int selected_pointer(void *context, const BkEndingFrameInput *input,
-                            char e[256]);
-static int selected_drag(void *context, const float motion[2], float *result,
-                         char e[256]);
-static int selected_hit(void *context, unsigned menu, const int32_t point[2],
-                        int *result, char e[256]);
-static int selected_clock(void *context, uint32_t *milliseconds, char e[256]);
-static int selected_stop(void *context, unsigned slot, char e[256]);
-static int selected_repeat(void *context, unsigned slot, char e[256]);
-static int selected_ui_byte(void *context, unsigned slot,
-                            BkEndingSelectedUiByte field, uint8_t value,
-                            char e[256]);
-static int selected_ui_uv_reset(void *context, unsigned slot, char e[256]);
-static int selected_ui_fade(void *context, unsigned slot, float alpha,
-                            char e[256]);
 
 static BkEndingSelectedControlBindings selected_control_bindings(
     EndingNormalScene *s) {
@@ -1656,18 +1528,6 @@ static BkEndingSelectedControlBindings selected_control_bindings(
       .speech_name = s->state->speech_names[0]};
 }
 
-static BkEndingSelectedControlOps selected_control_ops(void) {
-  return (BkEndingSelectedControlOps){
-      .context = NULL, .key = selected_key, .raw_key = selected_raw_key,
-      .audio = selected_audio, .load = selected_load,
-      .expression = selected_expression, .active = selected_active,
-      .request = selected_request, .write = selected_write,
-      .target = selected_target, .camera = selected_camera,
-      .manual = selected_manual, .pick = selected_pick,
-      .choose = selected_choose, .begin = selected_begin,
-      .action = selected_action, .random = selected_random};
-}
-
 static BkEndingSelectedActionBindings selected_action_bindings(
     EndingNormalScene *s, BkEndingSelectedControlBindings control) {
   BkEndingUiAuxNotice *ui = &s->state->ui_controller.auxiliary;
@@ -1697,26 +1557,6 @@ static BkEndingSelectedActionBindings selected_action_bindings(
       .sequence_elapsed = &ui->sequence_elapsed,
       .sequence = &ui->sequence,
       .animation_scale = &s->auxiliary_cycle->scale};
-}
-
-static BkEndingSelectedActionOps selected_action_ops(void) {
-  BkEndingSelectedActionOps out = {
-      .control = selected_control_ops(), .clip = selected_clip,
-      .source = selected_source, .pointer = selected_pointer,
-      .drag = selected_drag, .hit = selected_hit, .choices = NULL,
-      .clock = selected_clock, .stop = selected_stop, .repeat = selected_repeat,
-      .ui_byte = selected_ui_byte, .ui_uv_reset = selected_ui_uv_reset,
-      .ui_fade = selected_ui_fade};
-  return out;
-}
-
-static int selected_key(void *context, unsigned code, unsigned mode,
-                        uint32_t *result, char e[256]) {
-  return control_key(context, code, mode, result, e);
-}
-static int selected_raw_key(void *context, unsigned code, uint32_t *result,
-                            char e[256]) {
-  return raw_key(context, code, result, e);
 }
 static int selected_audio(void *context, const BkEndingAudioCall *call,
                           int *playing, char e[256]) {
@@ -1798,22 +1638,9 @@ static int selected_write(void *context, unsigned slot, BkEndingClipWrite kind,
   BkActorPose *pose = s && s->selected_assets
       ? bk_ending_selected_assets_pose(s->selected_assets, 0) : NULL;
   if (!pose || slot >= 32) return fail(e, "selected descriptor is unavailable");
-  BkClipEdit edit = {.slot = slot};
-  if (kind == BK_ENDING_CLIP_CHAIN) {
-    edit.fields = BK_CLIP_EDIT_CHAIN;
-    edit.chain = value;
-  } else if (kind == BK_ENDING_CLIP_NEXT) {
-    edit.fields = BK_CLIP_EDIT_NEXT;
-    edit.next = value;
-  } else if (kind == BK_ENDING_CLIP_REWIND) {
-    BkClipTiming timing;
-    if (!bk_actor_pose_timing(pose, slot, &timing))
-      return fail(e, "selected rewind descriptor is unavailable");
-    edit.fields = BK_CLIP_EDIT_SOURCE;
-    edit.source = timing.start;
-  } else return fail(e, "unknown selected descriptor write");
-  return bk_actor_pose_edit_clips(pose, &edit, 1, e);
+  return bk_ending_clip_write(pose, slot, kind, value, e);
 }
+
 static int selected_target(void *context, unsigned node, float position[3],
                            char e[256]) {
   EndingNormalScene *s = context;
@@ -1835,7 +1662,7 @@ static int selected_camera(void *context, BkEndingOpeningCamera kind,
   if (!s || !s->selected_assets || !result || !offset)
     return fail(e, "selected camera owner is unavailable");
   if (kind == BK_ENDING_OPENING_TRACK) {
-    BkEndingCameraOpeningInput input = {s, selected_key};
+    BkEndingCameraOpeningInput input = {s, control_key};
     int complete = 0;
     if (!bk_ending_camera_assets_opening(scene_cameras(s), scene_forest(s),
           tracks, s->camera_owner, s->state->retained.normal.follow_target,
@@ -1908,25 +1735,6 @@ static int selected_begin(void *context, char e[256]) {
       s->state->auxiliary.selection, s->state->frame.camera_cached, s->state->targets,
       s->state->alternate, s->state->choices, s->state->points, e);
 }
-static int selected_action(void *context, const BkEndingFrameInput *input,
-                           float seconds, char e[256]) {
-  EndingNormalScene *s = context;
-  if (!s || !s->selected_assets || !input)
-    return fail(e, "selected action owner is missing");
-  BkEndingSelectedControlBindings control = selected_control_bindings(s);
-  BkEndingSelectedActionBindings bindings = selected_action_bindings(s, control);
-  BkEndingSelectedActionOps ops = selected_action_ops();
-  ops.control.context = s;
-  ops.choices = s->state->choices;
-  return bk_ending_selected_action_step(s->selected_action, &bindings, input,
-                                        seconds, &ops, e);
-}
-static int selected_random(void *context, int32_t *result, char e[256]) {
-  EndingNormalScene *s = context;
-  if (!s || !s->random || !result) return fail(e, "selected RNG owner is missing");
-  *result = (int32_t)bk_random_next(s->random);
-  return 1;
-}
 static int selected_clip(void *context, unsigned slot,
                          BkEndingSelectedMotionClip *out, char e[256]) {
   EndingNormalScene *s = context;
@@ -1983,9 +1791,6 @@ static int selected_hit(void *context, unsigned menu, const int32_t point[2],
   return bk_ending_ui_circle_hit(center, radius, cursor, result, &distance)
       ? 1 : fail(e, "invalid selected menu hit geometry");
 }
-static int selected_clock(void *context, uint32_t *milliseconds, char e[256]) {
-  return frame_clock(context, milliseconds, e);
-}
 static int selected_stop(void *context, unsigned slot, char e[256]) {
   int playing, present;
   EndingNormalScene *s = context;
@@ -2034,6 +1839,44 @@ static int selected_ui_fade(void *context, unsigned slot, float alpha,
     return fail(e, "selected UI fade is outside owner");
   s->ui.sprites[52].transform.fade.alpha = alpha;
   return 1;
+}
+
+static int selected_action(void *, const BkEndingFrameInput *, float, char[256]);
+static BkEndingSelectedControlOps selected_control_ops(void) {
+  return (BkEndingSelectedControlOps){
+      .context = NULL, .key = control_key, .raw_key = raw_key,
+      .audio = selected_audio, .load = selected_load,
+      .expression = selected_expression, .active = selected_active,
+      .request = selected_request, .write = selected_write,
+      .target = selected_target, .camera = selected_camera,
+      .manual = selected_manual, .pick = selected_pick,
+      .choose = selected_choose, .begin = selected_begin,
+      .action = selected_action, .random = scene_random};
+}
+
+static BkEndingSelectedActionOps selected_action_ops(void) {
+  BkEndingSelectedActionOps out = {
+      .control = selected_control_ops(), .clip = selected_clip,
+      .source = selected_source, .pointer = selected_pointer,
+      .drag = selected_drag, .hit = selected_hit, .choices = NULL,
+      .clock = frame_clock, .stop = selected_stop, .repeat = selected_repeat,
+      .ui_byte = selected_ui_byte, .ui_uv_reset = selected_ui_uv_reset,
+      .ui_fade = selected_ui_fade};
+  return out;
+}
+
+static int selected_action(void *context, const BkEndingFrameInput *input,
+                           float seconds, char e[256]) {
+  EndingNormalScene *s = context;
+  if (!s || !s->selected_assets || !input)
+    return fail(e, "selected action owner is missing");
+  BkEndingSelectedControlBindings control = selected_control_bindings(s);
+  BkEndingSelectedActionBindings bindings = selected_action_bindings(s, control);
+  BkEndingSelectedActionOps ops = selected_action_ops();
+  ops.control.context = s;
+  ops.choices = s->state->choices;
+  return bk_ending_selected_action_step(s->selected_action, &bindings, input,
+                                        seconds, &ops, e);
 }
 
 #include "scene/ending_gallery_control_internal.h"
@@ -2250,7 +2093,7 @@ static int frame_invoke(void *context, const BkEndingCall *call,
           &s->state->retained.stage4.delay_54f8e0};
       BkEndingAuxiliaryState1Ops ops = {
           s, control_key, auxiliary_state4_present, auxiliary_state4_status,
-          auxiliary_state1_audio, auxiliary_state1_random,
+          scene_audio, scene_random,
           auxiliary_state1_pick, auxiliary_state1_menu_zone,
           auxiliary_state1_menu, auxiliary_state1_voice, auxiliary_state1_request,
           auxiliary_state4_expression};
@@ -2328,12 +2171,12 @@ static int frame_invoke(void *context, const BkEndingCall *call,
           .seconds = s->active_seconds};
       BkEndingAuxiliarySequenceOps ops = {
           .context = s,
-          .active = auxiliary_state3_active,
-          .timing = auxiliary_sequence_timing,
+          .active = scene_active,
+          .timing = auxiliary_state3_timing,
           .request = auxiliary_state1_request,
           .restart = auxiliary_sequence_restart,
-          .present = auxiliary_sequence_present,
-          .audio = auxiliary_state1_audio,
+          .present = scene_audio_present,
+          .audio = scene_audio,
           .voice = auxiliary_state1_voice,
           .expression = auxiliary_state4_expression,
           .target = auxiliary_state4_target,

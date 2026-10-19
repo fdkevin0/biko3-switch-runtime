@@ -93,7 +93,38 @@ static int profile(BkResourceStore *store, unsigned kind, unsigned group,
   bind_scene_actors(&scene);
   if (!check_bindings(&scene, kind, e))
     goto done;
+  BkClipState active;
+  int32_t slot = -99;
+  if (!bk_actor_pose_state(scene_primary(&scene), &active) ||
+      !scene_active(&scene, &slot, e) || slot != active.slot ||
+      scene_active(&scene, NULL, e)) {
+    fail(e, "shared active query lost the current loader's actor");
+    goto done;
+  }
+  e[0] = 0;
+  if (kind == 3) {
+    BkClipState before, after;
+    if (!bk_actor_pose_state(scene_primary(&scene), &before) ||
+        selected_write(&scene, 32, BK_ENDING_CLIP_CHAIN, 0, e) ||
+        selected_write(&scene, 0, BK_ENDING_CLIP_CHAIN, 2, e) ||
+        selected_write(&scene, 0, (BkEndingClipWrite)99, 0, e) ||
+        ui_tail_write(&scene, BK_CLIP_SLOTS, BK_ENDING_CLIP_REWIND, 0, e) ||
+        !ui_tail_write(&scene, 32, BK_ENDING_CLIP_CHAIN, 0, e) ||
+        !bk_actor_pose_state(scene_primary(&scene), &after) ||
+        memcmp(&before, &after, sizeof(before))) {
+      fail(e, "selected/UI clip limits or deferred writes changed");
+      goto done;
+    }
+    e[0] = 0;
+  }
   release_resources(&scene);
+  slot = -99;
+  if (scene_active(&scene, &slot, e) || slot != -99 ||
+      scene_active(NULL, &slot, e) || slot != -99) {
+    fail(e, "released/missing actor query changed output or succeeded");
+    goto done;
+  }
+  e[0] = 0;
   for (unsigned role = 0; role < ENDING_ROLE_COUNT; ++role)
     if (scene_actor(&scene, role) || scene_registry(&scene, role) != BK_MODEL_NONE ||
         scene_root(&scene, role)) {

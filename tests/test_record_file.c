@@ -73,6 +73,8 @@ int main(void) {
   assert(bk_record_native_encode(a,native,e));
   assert(bk_record_native_decode(b,native,BK_RECORD_NATIVE_BYTES,e));same(a,b);
   assert(bk_record_encode(a,bytes,e)); memcpy(saved,bytes,BK_RECORD_FILE_BYTES);
+  /* Frozen checksum from the original bitwise writer. */
+  assert(!memcmp(bytes + 24, "\x35\xa3\xdc\xbe", 4));
   assert(bk_record_decode(b,bytes,BK_RECORD_FILE_BYTES,e));same(a,b);
   for (unsigned k=0; k<32+30; ++k) {
     unsigned off = k<32 ? k : 32 + (k-32)*20000;

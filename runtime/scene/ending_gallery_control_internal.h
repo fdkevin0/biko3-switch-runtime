@@ -2,14 +2,6 @@
  * loader; the five CPU controllers never own models, sounds or UI sprites. */
 #include "game/ending_sound.h"
 
-static int gallery_present(void *p, unsigned slot, int *out, char e[256]) {
-  return bk_ending_audio_present(((EndingNormalScene *)p)->audio, slot, out)
-      ? 1 : fail(e, "gallery audio slot outside actual owners");
-}
-static int gallery_status(void *p, unsigned slot, int *out, char e[256]) {
-  BkEndingAudioCall call = {.operation = BK_ENDING_AUDIO_STATUS, .slot = slot};
-  return selected_audio(p, &call, out, e);
-}
 static int gallery_expression(void *p, int32_t a, int32_t b, int32_t mode,
                                char e[256]) {
   EndingNormalScene *s = p;
@@ -80,11 +72,6 @@ static int gallery_play(void *p, unsigned slot, int32_t flags, int32_t volume,
 static int gallery_play_once(void *p, unsigned slot, int32_t volume, char e[256]) {
   return gallery_play(p, slot, 0, volume, e);
 }
-static int gallery_pause(void *p, unsigned slot, char e[256]) {
-  int ignored;
-  BkEndingAudioCall call = {.operation = BK_ENDING_AUDIO_PAUSE, .slot = slot};
-  return selected_audio(p, &call, &ignored, e);
-}
 static int gallery_voice_name(void *p, char name[32], char e[256]) {
   return bk_ending_sound_contact_voice(((EndingNormalScene *)p)->state->frame.group,
                                         0, 0, 0, name, e);
@@ -131,13 +118,6 @@ static int gallery_auxiliary_voice(void *p, unsigned cue, unsigned slot,
              s->state->frame.group + 1, cue);
   return selected_load(p, slot, s->state->speech_names[slot], e) &&
       gallery_play(p, slot, flags, s->voice_volume, e);
-}
-static int gallery_active(void *p, int32_t *out, char e[256]) {
-  BkClipState state;
-  if (!out || !bk_actor_pose_state(scene_primary(p), &state))
-    return fail(e, "gallery active clip unavailable");
-  *out = state.slot;
-  return 1;
 }
 static int gallery_timing(void *p, int32_t clip, BkEndingClipTiming *out,
                            char e[256]) {
@@ -269,10 +249,10 @@ static int gallery_child(void *p, unsigned child, char e[256]) {
     BkEndingGalleryNormalBindings b;
     if (!bk_ending_state_gallery_normal_bindings(s->state, &s->voice_volume,
           &s->effect_volume, &b)) return fail(e, "missing gallery normal bindings");
-    BkEndingGalleryNormalOps ops = {s, selected_random, selected_load,
+    BkEndingGalleryNormalOps ops = {s, scene_random, selected_load,
       gallery_play, gallery_expression, gallery_fov, gallery_camera, gallery_target5,
       gallery_hidden, gallery_actor_request, gallery_timing_unsigned,
-      gallery_present, gallery_status, gallery_pause, selected_stop};
+      scene_audio_present, scene_audio_status, scene_audio_pause, selected_stop};
     return bk_ending_gallery_normal_step(&process->gallery_normal, &b,
                                           s->active_seconds, &ops, e);
   }
@@ -280,10 +260,10 @@ static int gallery_child(void *p, unsigned child, char e[256]) {
     BkEndingGallerySecondaryBindings b;
     if (!bk_ending_state_gallery_secondary_bindings(s->state, s->camera_owner,
           &process->gallery_camera, &b)) return fail(e, "missing gallery secondary bindings");
-    BkEndingGallerySecondaryOps ops = {s, frame_clock, selected_random,
-      gallery_present, gallery_status, gallery_secondary_voice,
+    BkEndingGallerySecondaryOps ops = {s, frame_clock, scene_random,
+      scene_audio_present, scene_audio_status, gallery_secondary_voice,
       gallery_expression, gallery_fov, gallery_camera, gallery_target0,
-      gallery_active, gallery_secondary_clip, gallery_request, gallery_restart};
+      scene_active, gallery_secondary_clip, gallery_request, gallery_restart};
     return bk_ending_gallery_secondary_step(&process->gallery_secondary, &b,
                                              s->active_seconds, &ops, e);
   }
@@ -297,10 +277,10 @@ static int gallery_child(void *p, unsigned child, char e[256]) {
     if (!bk_ending_state_gallery_selected_bindings(s->state, &views, &b))
       return fail(e, "missing gallery selected bindings");
     b.wait_for_intro_clip = 1;
-    BkEndingGallerySelectedOps ops = {s, frame_clock, selected_random,
-      gallery_present, gallery_status, gallery_selected_voice,
+    BkEndingGallerySelectedOps ops = {s, frame_clock, scene_random,
+      scene_audio_present, scene_audio_status, gallery_selected_voice,
       selected_load, gallery_play, selected_stop, gallery_expression, gallery_fov,
-      gallery_camera, gallery_target, gallery_active, gallery_selected_clip,
+      gallery_camera, gallery_target, scene_active, gallery_selected_clip,
       gallery_source, gallery_chain, gallery_request, gallery_restart, gallery_fade};
     return bk_ending_gallery_selected_step(&process->gallery_selected, &b,
                                             s->active_seconds, &ops, e);
@@ -312,10 +292,10 @@ static int gallery_child(void *p, unsigned child, char e[256]) {
     BkEndingGalleryTertiaryBindings b;
     if (!bk_ending_state_gallery_tertiary_bindings(s->state, &process->gallery_normal,
           &views, &b)) return fail(e, "missing gallery third bindings");
-    BkEndingGalleryTertiaryOps ops = {s, selected_random, gallery_present,
-      gallery_status, gallery_tertiary_voice, gallery_play_once,
+    BkEndingGalleryTertiaryOps ops = {s, scene_random, scene_audio_present,
+      scene_audio_status, gallery_tertiary_voice, gallery_play_once,
       gallery_expression, gallery_material, gallery_hidden, gallery_actor_request,
-      gallery_active, gallery_timing, gallery_target5};
+      scene_active, gallery_timing, gallery_target5};
     return bk_ending_gallery_tertiary_step(&b, &ops, e);
   }
   case 8: {
@@ -324,10 +304,10 @@ static int gallery_child(void *p, unsigned child, char e[256]) {
     BkEndingGalleryAuxiliaryBindings b;
     if (!bk_ending_state_gallery_auxiliary_bindings(s->state, &views, &b))
       return fail(e, "missing gallery auxiliary bindings");
-    BkEndingGalleryAuxiliaryOps ops = {s, gallery_present,
-      gallery_status, gallery_auxiliary_voice, gallery_play, gallery_pause,
+    BkEndingGalleryAuxiliaryOps ops = {s, scene_audio_present,
+      scene_audio_status, gallery_auxiliary_voice, gallery_play, scene_audio_pause,
       gallery_expression, gallery_fov, gallery_camera, gallery_target,
-      gallery_active, gallery_timing, gallery_source, gallery_request, gallery_restart};
+      scene_active, gallery_timing, gallery_source, gallery_request, gallery_restart};
     return bk_ending_gallery_auxiliary_step(&process->gallery_auxiliary, &b,
                                              s->active_seconds, &ops, e);
   }
@@ -339,7 +319,7 @@ static int gallery_control_step(EndingNormalScene *s, char e[256]) {
   if (!s->process || !bk_ending_state_gallery_bindings(s->state, s->records,
         &s->voice_volume, &b)) return fail(e, "missing recorded gallery owners");
   BkEndingGalleryControlOps ops = {s, gallery_expression, gallery_fov,
-    gallery_camera, gallery_target5, gallery_present, gallery_status,
+    gallery_camera, gallery_target5, scene_audio_present, scene_audio_status,
     selected_load, gallery_play_once, gallery_voice_name, gallery_tertiary_voice,
     gallery_cue, gallery_child};
   return bk_ending_gallery_control_step(&s->process->gallery_control, &b,

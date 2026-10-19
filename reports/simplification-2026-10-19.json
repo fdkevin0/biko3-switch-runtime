@@ -1,0 +1,231 @@
+{
+  "date": "2026-10-19",
+  "baseline": "本次任务开始时的工作区，包含此前未提交的改动；行数与结果不以 Git HEAD 为基线。",
+  "steps": [
+    {
+      "order": 1,
+      "change": "合并八个重复回调，UI、辅助阶段和鉴赏复用活动片段、音频查询/暂停及片段时间服务；同步调用表和五个相关探针。",
+      "retained": "五类资源加载器、两语音槽限制、32/128 动画槽限制、选项语音名字发布、资源重载和末帧退役时机保持原路径。共享查询在调用时解析当前演员，不缓存旧演员。"
+    },
+    {
+      "order": 2,
+      "change": "背景配置表省略 266 条尾部全零音效记录；13 组全空数组保留一个 {0} 初始化。",
+      "retained": "45 个配置、每组八个槽、94 个实际音效及所有原始浮点位模式不变；仍是原 EXE 配置表，不迁移为 Lua，也不依赖运行时读取 EXE。"
+    },
+    {
+      "order": 3,
+      "change": "effect_busy 复用既有 media_busy，保留 effect 范围校验、+2 槽偏移和 present→status 调用顺序。",
+      "decision": "检查了 ending_auxiliary_sequence 的固定阶段：group3_chain、threshold、finish 已集中重复步骤；输入条件、阈值、闩锁重置与音频交错不同，本轮没有为它们再增加通用步骤表或执行器。"
+    },
+    {
+      "order": 4,
+      "change": "在忽略的 build 目录做只读导出试验，直接编译并调用当前 dialogue.c 与 dialogue_entry.c，复用 tools/bk3_assets.py 读 PP。",
+      "decision": "导出为按原文件顺序排列的 JSON，包含标签、游标、台词原始字节、可读文本和媒体元数据；不把重复标签压成字典，不新增正式导出工具或运行时脚本依赖。"
+    }
+  ],
+  "line_counts": {
+    "runtime_delta": -322,
+    "data_initializer_delta": -253,
+    "runtime_logic_and_adapters_delta": -69,
+    "probe_delta": 16,
+    "code_and_tests_delta": -306,
+    "excludes": "文档、本地编译产物、日志和临时导出试验；行数减少不等于二进制体积或性能提升。"
+  },
+  "changes": [
+    {
+      "path": "tools/ending_node_bindings_probe.c",
+      "before": 195,
+      "after": 195,
+      "delta": 0,
+      "before_sha256": "990606523db7c5a1cd2507081ab11804b3517f544107eca4b7837010c741208a",
+      "after_sha256": "bfeabe99380c602034ffa5bb68c6bb3166b84981e1ce5f5a1d8a03d4b133b04a"
+    },
+    {
+      "path": "tools/ending_stage_reload_probe.c",
+      "before": 296,
+      "after": 296,
+      "delta": 0,
+      "before_sha256": "d1610cc30721ff7f2b7b2f8dba02978f5575e6f4da433834588de459b6a09335",
+      "after_sha256": "1fada313a610d95742823c96ffdc60803a034cc72d1a902b3c31f3534669cd89"
+    },
+    {
+      "path": "tools/ending_selected_session_probe.c",
+      "before": 293,
+      "after": 293,
+      "delta": 0,
+      "before_sha256": "0114e10b0a11650c2925801ee0b7d4c6aa697792ab425abb3706706b04482f74",
+      "after_sha256": "97844d133e3986dec3efd72092f437705d3937b20b7892f4ee2afa00a7b59f1d"
+    },
+    {
+      "path": "tools/ending_role_bindings_probe.c",
+      "before": 159,
+      "after": 175,
+      "delta": 16,
+      "before_sha256": "c00e3982ae80825abdc603c6ba76ce2ddc6a73b77d76ba20d57da9da3ad0c64c",
+      "after_sha256": "b5bcff3dc00bbab439ffeac50d72f055f81d097759dd3ba8779bc0a0d990259b"
+    },
+    {
+      "path": "tools/ending_selected_adapters_probe.c",
+      "before": 263,
+      "after": 263,
+      "delta": 0,
+      "before_sha256": "d67ebb3510b053373ef9fd67b26fd781f1c4b7daa219508fec7b71a58eeb6eba",
+      "after_sha256": "5a0458e1d1f7f9e8dd343e86cf48e51be37f09746cbd86f20c854a7ea1303d5a"
+    },
+    {
+      "path": "runtime/game/background_config_tables.inc",
+      "before": 1077,
+      "after": 824,
+      "delta": -253,
+      "before_sha256": "eb3c782c33fb5c9622f2b7fe3d2666f2115a29124a45c33770c490c8acde0dfb",
+      "after_sha256": "c7989122ca4205cbaff39a25e3ad0f55095b26076647e97e267eb10d32938098"
+    },
+    {
+      "path": "runtime/game/ending_auxiliary_sequence.c",
+      "before": 647,
+      "after": 639,
+      "delta": -8,
+      "before_sha256": "dbd9c0bf0795ef94fdf289517695e0ce7dc2ca9c5fef073769d51fb087d4ff1e",
+      "after_sha256": "2337c505295df5b7175dd7cc25b6e02d26dcb0e67747e500c1f901e4494b2c94"
+    },
+    {
+      "path": "runtime/scene/ending_normal_session.c",
+      "before": 3368,
+      "after": 3327,
+      "delta": -41,
+      "before_sha256": "460d5f8f3c1b8efd48ad21a1bfab4f6b709750e5e781a3596ae0f9df4325266b",
+      "after_sha256": "29dc2dfe8e74d1551d76ac1ec8e0bbda991684c7e341283f8117a33a7f3e1235"
+    },
+    {
+      "path": "runtime/scene/ending_gallery_control_internal.h",
+      "before": 347,
+      "after": 327,
+      "delta": -20,
+      "before_sha256": "c044730f464e06003a3d8f2ca7ae316e197180eaab77fa9da2236b22d1de16ff",
+      "after_sha256": "acf39f5ecc2d85b4ffcffb82bd6e7dba8c27f3f6aeb39e921cf54d28bcc25b5d"
+    },
+    {
+      "path": "runtime/scene/ending_gallery_presentation_internal.h",
+      "before": 213,
+      "after": 213,
+      "delta": 0,
+      "before_sha256": "a2008de53c1214db6b40fda145efe4ab3146ca5fa8cf764a9f708c87ebaae7b6",
+      "after_sha256": "7e4dc74d8c5398e5b4aedc8144e5ca448955dfd016b5ecc6f1bb404eb2d27c8c"
+    }
+  ],
+  "background_comparison": {
+    "profiles": 45,
+    "ambient_slots": 360,
+    "authored_sounds": 94,
+    "equal": true,
+    "canonical_sha256": "383c1f66b8ea01f9ee2191e5e1f28189c953fa1a501954c0dfbedf69155afbb0",
+    "scope": "all fields, strings, float bit patterns and invalid lookup boundaries; excludes pointer addresses and struct padding"
+  },
+  "dialogue_export": {
+    "files": 26,
+    "messages": 2247,
+    "skipped": [
+      {
+        "name": "i00_10.txt",
+        "reason": "no numeric dialogue headers",
+        "sha256": "f25511b1b6bdc26b521701d9b1dc6b8a42d1dbe8b84663da3b5b7335dd275958"
+      }
+    ],
+    "repeated_labels": [
+      {
+        "name": "i03_00.txt",
+        "labels": {
+          "30060": 2
+        }
+      },
+      {
+        "name": "i03_03.txt",
+        "labels": {
+          "30013": 3
+        }
+      },
+      {
+        "name": "i04_02.txt",
+        "labels": {
+          "40000": 2
+        }
+      },
+      {
+        "name": "i01_02.txt",
+        "labels": {
+          "10033": 2,
+          "10013": 2
+        }
+      },
+      {
+        "name": "i01_03.txt",
+        "labels": {
+          "10008": 2,
+          "10009": 2
+        }
+      }
+    ],
+    "entry_examples": 80,
+    "rejected_entry_examples": 10,
+    "all_labels_match_in_order": true,
+    "scope": "Read-only parser metadata, not a playable script. Media flags acknowledged after each page; UI, actor, input, timing and transitions are not executed. Entry examples come from current C reconstructed from EXE, not from TXT. Plain source PP only; no patch overlay.",
+    "output_sha256": "41e0586283d2defdca0361331e166233d32409769434ba18b6450a1c9b57e2c9"
+  },
+  "validation": {
+    "normal_ctest": {
+      "passed": 4,
+      "tests": [
+        "ending-ui-frame",
+        "ending-ui-tail",
+        "ending-auxiliary-state3",
+        "ending-auxiliary-sequence"
+      ]
+    },
+    "sanitized_ctest": {
+      "passed": 4,
+      "sanitizers": [
+        "ASan",
+        "UBSan"
+      ],
+      "leak_sanitizer": false
+    },
+    "roles": {
+      "profiles": 70,
+      "loaders": 5,
+      "normal": "passed",
+      "sanitized": "passed",
+      "new_checks": "活动片段查询对应当前加载器；空输出、释放后和空上下文拒绝且保留输出哨兵。"
+    },
+    "architecture": "两项测试通过",
+    "gpu": "Apple M1 Pro / MoltenVK 1.4.2；初始沙盒无法访问 GPU，后续使用获准的设备访问运行。",
+    "selected_adapters": {
+      "same_summary": true,
+      "before": "PASS selected adapters entries10 manual40 restarts10 flashes10 uv20 cancels10 replay10 completion10 auxiliary10 rejects50 frames52702 state=0cbf9107a48cdd13 pcm=3c4be7cbc8c05cc6",
+      "after": "PASS selected adapters entries10 manual40 restarts10 flashes10 uv20 cancels10 replay10 completion10 auxiliary10 rejects50 frames52702 state=0cbf9107a48cdd13 pcm=3c4be7cbc8c05cc6"
+    },
+    "stage_reload": {
+      "same_summary": true,
+      "before": "PASS stage reload entries5 boundary20 curtain10 frames1560 redraws70 pcm=a5e06f355843498f",
+      "after": "PASS stage reload entries5 boundary20 curtain10 frames1560 redraws70 pcm=a5e06f355843498f"
+    },
+    "gallery_session": {
+      "same_summary": true,
+      "before": "PASS gallery session entries10 transitions25 children31 completed10 redraws332 frames164220 state=75488bd6e34f1909 pcm=dd9b917b384707e7",
+      "after": "PASS gallery session entries10 transitions25 children31 completed10 redraws332 frames164220 state=75488bd6e34f1909 pcm=dd9b917b384707e7"
+    },
+    "diff_check": "passed"
+  },
+  "local_artifacts": {
+    "directory": "build/validation/simplify-2026-10-19",
+    "dialogue": "dialogue-export.json",
+    "prototype": "export_dialogue.py",
+    "before_sources": "before/",
+    "diffs": "diffs/"
+  },
+  "limits": [
+    "真实资源探针使用显式阶段/记录夹具，不是完整自然剧情遍历；摘要只覆盖探针采样状态、PCM 及局部绘制检查。",
+    "未重跑固定 EXE 原指令 oracle。",
+    "剧情导出只读原始 bk3_05.pp，不加载中文补丁；没有执行角色、UI、声音设备或剧情转换。入口映射取自已重建的 C 逻辑，不能据此声称其原本存在于 TXT 中。",
+    "未进行 Switch/Linux 实机验收、发布、打包、操作用户存档或推送 Git。"
+  ]
+}

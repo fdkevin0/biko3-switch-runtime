@@ -95,8 +95,8 @@ static int gallery_effect(void *p, char e[256]) {
   BkEndingGalleryEffectBindings b = {&s->state->frame, &s->state->auxiliary,
       &s->state->control.variant, &s->process->gallery_effect,
       &s->voice_volume, &s->effect_volume};
-  BkEndingGalleryEffectOps ops = {s, gallery_active, gallery_timing_unsigned,
-                                   selected_audio, selected_random};
+  BkEndingGalleryEffectOps ops = {s, scene_active, gallery_timing_unsigned,
+                                   selected_audio, scene_random};
   return bk_ending_gallery_effect_step(&b, s->active_seconds, &ops, e);
 }
 static int gallery_rewind(void *p, unsigned clip, char e[256]) {

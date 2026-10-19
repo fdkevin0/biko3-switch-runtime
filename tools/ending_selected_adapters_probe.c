@@ -191,7 +191,7 @@ static int adapter_profile(BkRenderer *renderer, BkResourceStore *store,
   CHECK(bk_ending_state_reload_bindings(s->state, s->common, &s->previous_flow, &bindings));
   BkEndingReloadOps ops = {s, ui_reload_load, ui_reload_release,
       ui_reload_final_image, ui_reload_leave, ui_reload_lighting,
-      ui_reload_schedule, ui_reload_present, ui_reload_status, ui_reload_pause};
+      ui_reload_schedule, scene_audio_present, scene_audio_status, scene_audio_pause};
   int early = -1;
   CHECK(bk_ending_reload_transition(&bindings, 3, &ops, &early, e));
   CHECK(!early && s->auxiliary_assets && s->state->frame.phase == 4);
@@ -204,7 +204,7 @@ static int adapter_profile(BkRenderer *renderer, BkResourceStore *store,
   s->state->frame.camera_mode = 0;
   int playing;
   BkEndingAudioCall pause = {.operation = BK_ENDING_AUDIO_PAUSE, .slot = 1};
-  CHECK(auxiliary_state1_audio(s, &pause, &playing, e));
+  CHECK(scene_audio(s, &pause, &playing, e));
   BkFaceState *face = bk_ending_auxiliary_assets_face_state(s->auxiliary_assets);
   CHECK(face);
   BkFaceState old_face = *face;

@@ -8,6 +8,10 @@ typedef struct {
   BkEyeAssets *eyes;
   BkEndingAudio *audio;
 } BkEndingAuxiliaryServices;
+/* One descriptor write, with no selection, advancement or publication.
+ * Callers retain their own slot limits and resolve the current actor. */
+int bk_ending_clip_write(BkActorPose *, unsigned slot, BkEndingClipWrite,
+                          int32_t value, char error[256]);
 /* Borrow loaded real resources. Dynamic edits and configured requests do not
  * advance local animation or publish world caches. Expression scalars are
  * retained in state until the actual ending face update consumes them. */

@@ -136,7 +136,7 @@ static int profile(BkRenderer *renderer, BkResourceStore *store, unsigned group,
                                            &s->previous_flow, &bindings));
     BkEndingReloadOps ops = {s, probe_load, ui_reload_release,
         ui_reload_final_image, ui_reload_leave, ui_reload_lighting,
-        ui_reload_schedule, ui_reload_present, ui_reload_status, ui_reload_pause};
+        ui_reload_schedule, scene_audio_present, scene_audio_status, scene_audio_pause};
     int early = -1;
     VERIFY(bk_ending_reload_transition(&bindings, 3, &ops, &early, e));
     VERIFY(!early && !s->common->action && !s->common->blocked);
