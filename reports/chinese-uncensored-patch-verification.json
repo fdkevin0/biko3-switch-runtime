@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-19",
+  "focus": "Chinese + uncensored BKPT2 patch built from original Japanese Data, 3DH Chinese Data and 3DH uncensored Patch.3dh",
+  "tool": "tools/prepare_chinese_patch.py --uncensored",
+  "format": "BKPT2 within inline PP",
+  "version": 2,
+  "flags": 3,
+  "resources": 328,
+  "output_bytes": 33556071,
+  "output_sha256": "9a4a3819d5b56372b7e2e59a1d750b2b54b307e2bb7c99cc24f0cb4fd94bb670",
+  "uncensored_source_sha256": "c6cd21d57f81bf6f121534b99dd7aa3f4d47f5850f0b9711250c92fbd779bdf2",
+  "uncensored_resource_operations": 341,
+  "native_executable_operations_skipped": 21,
+  "resource_counts": {
+    "bk3_00": 201,
+    "bk3_01": 11,
+    "bk3_05": 27,
+    "bk3_08": 11,
+    "bk3_09": 10,
+    "bk3_10": 20,
+    "bk3_11": 10,
+    "bk3_12": 10,
+    "bk3_13": 20,
+    "bk3_14": 5,
+    "bk3_15": 1,
+    "fonts": 2
+  },
+  "checks": [
+    "generator decoded all 328 records and matched the built Chinese-plus-uncensored result",
+    "3DH uncensored source SHA256 matches the known patch version",
+    "executable operations validated but excluded from the native patch",
+    "production biko3-preview rendered the patched Chinese title",
+    "production office scene loaded 65 frames, 93 instances and 62 GPU parts with the combined patch",
+    "1200-frame replay smoke completed without resource or font failure"
+  ],
+  "limitations": [
+    "3DH translation quality, watermark and attribution remain in source assets",
+    "complete story and uncensored-scene visual review not performed",
+    "no macOS/Switch real-device verification in this step"
+  ]
+}

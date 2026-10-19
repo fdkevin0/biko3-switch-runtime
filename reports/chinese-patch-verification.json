@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-19",
+  "focus": "Chinese-only BKPT2 patch built from original Japanese Data and pre-patched 3DH Chinese Data",
+  "tool": "tools/prepare_chinese_patch.py",
+  "format": "BKPT2 within inline PP",
+  "version": 2,
+  "flags": 1,
+  "resources": 234,
+  "output_bytes": 15791467,
+  "output_sha256": "3104970755de6c49470c07c8b8b8adb19791b25f7fd71b3f2c9e88413e9d3ea3",
+  "resource_counts": {
+    "bk3_00": 201,
+    "bk3_01": 1,
+    "bk3_05": 27,
+    "bk3_08": 1,
+    "bk3_14": 1,
+    "bk3_15": 1,
+    "fonts": 2
+  },
+  "ignored_non_localization_files": ["bk3_Red.b3f", "setting.cfg"],
+  "checks": [
+    "python generator decoded all 234 records and matched the Chinese Data bytes",
+    "patched Type_S.FTT decoded by runtime bk_font_decode; Chinese and Japanese glyph probes pass",
+    "production biko3-preview rendered the Chinese title/menu with the patch",
+    "left control-help page switched to Chinese because flags=1",
+    "1200-frame replay smoke completed without resource/font failure"
+  ],
+  "limitations": [
+    "does not include the optional uncensored patch",
+    "3DH translation quality, watermark and attribution remain in source assets",
+    "no complete Chinese story/dialogue route review was performed"
+  ]
+}

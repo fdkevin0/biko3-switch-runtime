@@ -138,6 +138,33 @@ python3 tools/prepare_combined_patch.py \
 
 输出外挂及资源摘要，不运行 Windows 安装器、不改写原数据。输出已存在时不覆盖，重新生成可指定新路径。原补丁署名/协议随本地交付保留，补丁素材不在源码仓库中。实现与检查范围见[合并补丁记录](reports/combined-patch.md)和[加载优化](reports/patch-loading.md)。
 
+### 仅中文 BKPT2 外挂
+
+如果手上是已经预打好 3DH 汉化的绿色版，而希望补丁只包含中文界面、剧本和字库（不包含去码、3DH 启动器、旧配置和存档），可由原始日文 Data 与该中文 Data 直接生成标准 `patch.pp`：
+
+```sh
+python3 tools/prepare_chinese_patch.py \
+  local/game/MAINDIR \
+  '尾行3绿色免安装简体中文版' \
+  dist/chinese-patch/patch.pp
+```
+
+生成器逐资源比较原版与中文数据，只收录 234 项本地化资源；`patch.cfg` 为 BKPT2、flags=1（中文），字体以原日文字库为基底叠加 3DH 中文字形。`setting.cfg`、`bk3_Red.b3f` 等非翻译差异会跳过。输出 `patch.pp` 放在游戏数据根目录即可；macOS 路径见[macOS 原生运行](docs/macos-native.md)。本次生成的本地样本为 15,791,467 字节，SHA256 `3104970755de6c49470c07c8b8b8adb19791b25f7fd71b3f2c9e88413e9d3ea3`，验证范围见[纯中文外挂记录](reports/chinese-patch.md)。
+
+### 汉化 + 去码
+
+加 `--uncensored` 并指向 3DH 去马赛克压缩包内的 `Patch.3dh`，同一生成器会合并 341 项去码资源操作，输出 flags=3 的“汉化 + 去码”外挂：
+
+```sh
+python3 tools/prepare_chinese_patch.py \
+  local/game/MAINDIR \
+  '尾行3绿色免安装简体中文版' \
+  dist/chinese-patch/patch-cn-uncensored.pp \
+  --uncensored '路径/Bk3msc_updatex_05_02_02/Patch.3dh'
+```
+
+本次本地样本为 33,556,071 字节，SHA256 `9a4a3819d5b56372b7e2e59a1d750b2b54b307e2bb7c99cc24f0cb4fd94bb670`，共 328 项资源、flags=3；验证范围见[中文+去码外挂记录](reports/chinese-patch.md#汉化--去码)。
+
 ## 原版直装 NSP
 
 本地成品 `交付/biko3-01094F68D7330000.nsp`，2,957,146,840 字节（约 2.96 GB），SHA256：
