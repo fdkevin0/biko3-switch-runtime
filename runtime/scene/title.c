@@ -34,7 +34,10 @@ BkScene *bk_title_create(const BkSceneServices *services, char error[256]) {
     snprintf(error, 256, "title scene allocation failed");
     return NULL;
   }
-  scene->base = (BkScene){.step = NULL, .draw = draw, .destroy = destroy};
+  scene->base = (BkScene){.step = NULL,
+                          .draw = draw,
+                          .destroy = destroy,
+                          .resize = NULL};
   scene->renderer = services->renderer;
   BkBlob blob = {0};
   BkImage image = {0};

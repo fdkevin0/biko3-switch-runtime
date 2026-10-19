@@ -51,6 +51,17 @@ void bk_retry_preview_clock(BkScene *scene, double elapsed) {
   if (r)
     r->elapsed = elapsed;
 }
+static int resize(void *context, unsigned width, unsigned height,
+                  char error[256]) {
+  ChoicePreview *r = context;
+  if (!r || !width || !height ||
+      !bk_camera_fit(&r->viewport, width, height, 4, 3)) {
+    snprintf(error, 256, "retry preview: invalid resize viewport");
+    return 0;
+  }
+  return 1;
+}
+
 static int step(void *context, double seconds, const BkInput *input,
                 char error[256]) {
   ChoicePreview *r = context;
@@ -157,7 +168,7 @@ static BkScene *create(const BkSceneServices *services, BkRetryState *state,
             : bk_retry_initialize(state, r->viewport.width, &ops, error)))
     goto bad;
   BkScene *scene =
-      bk_scene_custom_create(r, (BkSceneCustomOps){step, draw, destroy}, error);
+      bk_scene_custom_create(r, (BkSceneCustomOps){.step = step, .draw = draw, .destroy = destroy, .resize = resize}, error);
   if (scene)
     return scene;
 bad:

@@ -524,6 +524,15 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
     return bk_special_session_step(s->special_session, dt, in, e);
   return fail(e, "unbound frame");
 }
+int bk_front_end_resize(BkFrontEnd *s, unsigned width, unsigned height,
+                        char e[256]) {
+  if (!s || !width || !height ||
+      !bk_camera_fit(&s->c.viewport, width, height, 4, 3)) {
+    snprintf(e, 256, "front end: invalid resize viewport");
+    return 0;
+  }
+  return 1;
+}
 int bk_front_end_draw(BkFrontEnd *s, char e[256]) {
   if (!s || !s->active)
     return fail(e, "no snapshot");

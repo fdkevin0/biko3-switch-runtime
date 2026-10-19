@@ -118,7 +118,10 @@ BkScene *bk_actor_preview_create(const BkSceneServices *services,
     snprintf(error, 256, "actor preview allocation failed");
     return NULL;
   }
-  s->base = (BkScene){step, draw, destroy};
+  s->base = (BkScene){.step = step,
+                        .draw = draw,
+                        .destroy = destroy,
+                        .resize = NULL};
   s->renderer = services->renderer;
   BkEntryRequest request = {0, 8, 0, 8};
   s->entry = bk_entry_assets_create(services->resources, &request, error);

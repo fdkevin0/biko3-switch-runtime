@@ -434,6 +434,24 @@ static int prepare_common(PlaySession *s, float seconds, char error[256]) {
                                    s->viewport.width, s->viewport.height,
                                    error);
 }
+static int resize(void *context, unsigned width, unsigned height,
+                  char error[256]) {
+  PlaySession *s = context;
+  if (!s || !width || !height ||
+      !bk_camera_fit(&s->viewport, width, height, 4, 3)) {
+    snprintf(error, 256, "play session: invalid resize viewport");
+    return 0;
+  }
+  if (s->front && !bk_front_end_resize(s->front, width, height, error))
+    return 0;
+  BkScene *scenes[] = {s->game, s->pause, s->title, s->retry,
+                       s->checkpoint, s->save, s->ending};
+  for (unsigned i = 0; i < sizeof(scenes) / sizeof(scenes[0]); ++i)
+    if (scenes[i] && !bk_scene_resize(scenes[i], width, height, error))
+      return 0;
+  return 1;
+}
+
 static int step(void *context, double seconds, const BkInput *input,
                 char error[256]) {
   PlaySession *s = context;
@@ -797,7 +815,7 @@ static BkScene *create(const BkSceneServices *services,
       !step(s, 1.0 / 60, &(BkInput){0}, error))
     goto bad;
   BkScene *scene =
-      bk_scene_custom_create(s, (BkSceneCustomOps){step, draw, destroy}, error);
+      bk_scene_custom_create(s, (BkSceneCustomOps){.step = step, .draw = draw, .destroy = destroy, .resize = resize}, error);
   if (!scene)
     goto bad;
   return scene;

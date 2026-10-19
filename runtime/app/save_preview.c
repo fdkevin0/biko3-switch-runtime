@@ -161,6 +161,16 @@ void bk_save_preview_clock(BkScene *scene, double elapsed) {
   if (s)
     s->elapsed = elapsed;
 }
+static int resize(void *p, unsigned width, unsigned height, char e[256]) {
+  SavePreview *s = p;
+  if (!s || !width || !height ||
+      !bk_camera_fit(&s->viewport, width, height, 4, 3)) {
+    snprintf(e, 256, "save preview: invalid resize viewport");
+    return 0;
+  }
+  return 1;
+}
+
 static int step(void *p, double seconds, const BkInput *input, char e[256]) {
   SavePreview *s = p;
   if (!input || s->retired || !isfinite(seconds) || seconds <= 0 ||
@@ -308,7 +318,7 @@ BkScene *bk_save_preview_create(const BkSceneServices *services,
   /* The native constructor does not warp the shared pointer. */
   memcpy(s->pointer.position, state->control.cursor, sizeof(s->pointer.position));
   BkScene *scene =
-      bk_scene_custom_create(s, (BkSceneCustomOps){step, draw, destroy}, e);
+      bk_scene_custom_create(s, (BkSceneCustomOps){.step = step, .draw = draw, .destroy = destroy, .resize = resize}, e);
   if (scene)
     return scene;
 bad:

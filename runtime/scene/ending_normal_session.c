@@ -3117,6 +3117,18 @@ static int prepare_frame(EndingNormalScene *s, float seconds, char e[256]) {
   return 1;
 }
 
+static int resize(void *context, unsigned width, unsigned height,
+                  char e[256]) {
+  EndingNormalScene *s = context;
+  if (!s || !width || !height ||
+      !bk_camera_fit(&s->viewport, width, height, 4, 3) ||
+      !bk_ending_special_viewport(&s->special_viewport, &s->viewport, e)) {
+    snprintf(e, 256, "ending normal: invalid resize viewport");
+    return 0;
+  }
+  return 1;
+}
+
 static int step(void *context, double seconds, const BkInput *input,
                 char e[256]) {
   EndingNormalScene *s = context;
@@ -3308,7 +3320,7 @@ static BkScene *create_entry(const BkSceneServices *services, unsigned group,
   if (!prepare_frame(s, 1.0f / 60.0f, e))
     goto bad;
   BkScene *scene = bk_scene_custom_create(
-      s, (BkSceneCustomOps){step, draw, destroy}, e);
+      s, (BkSceneCustomOps){.step = step, .draw = draw, .destroy = destroy, .resize = resize}, e);
   if (!scene)
     goto bad;
   s->inventory_active = 1;

@@ -415,7 +415,8 @@ int bk_application_run(int argc, char **argv) {
 #ifdef __APPLE__
     unsigned resize_width = 0, resize_height = 0;
     if (bk_platform_take_resize(platform, &resize_width, &resize_height) &&
-        !bk_renderer_resize(renderer, resize_width, resize_height, error))
+        (!bk_renderer_resize(renderer, resize_width, resize_height, error) ||
+         !bk_scene_resize(scene, resize_width, resize_height, error)))
       goto done;
     if (!bk_platform_focused(platform)) {
       bk_platform_idle(platform, 16);

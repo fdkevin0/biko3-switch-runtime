@@ -21,6 +21,13 @@ static void custom_destroy(BkScene *base) {
   s->ops.destroy(s->context);
   free(s);
 }
+static int custom_resize(BkScene *base, unsigned width, unsigned height,
+                         char error[256]) {
+  BkCustomScene *s = (BkCustomScene *)base;
+  return s->ops.resize
+             ? s->ops.resize(s->context, width, height, error)
+             : 1;
+}
 void *bk_scene_custom_context(BkScene *scene) {
   if (!scene || scene->step != custom_step)
     return NULL;
@@ -37,7 +44,10 @@ BkScene *bk_scene_custom_create(void *context, BkSceneCustomOps ops,
     snprintf(error, 256, "custom scene allocation failed");
     return NULL;
   }
-  s->base = (BkScene){custom_step, custom_draw, custom_destroy};
+  s->base = (BkScene){.step = custom_step,
+                      .draw = custom_draw,
+                      .destroy = custom_destroy,
+                      .resize = custom_resize};
   s->context = context;
   s->ops = ops;
   return &s->base;
@@ -66,6 +76,14 @@ int bk_scene_step(BkScene *scene, double seconds, const BkInput *input,
     return 0;
   }
   return scene->step ? scene->step(scene, seconds, input, error) : 1;
+}
+int bk_scene_resize(BkScene *scene, unsigned width, unsigned height,
+                    char error[256]) {
+  if (!scene || !width || !height) {
+    snprintf(error, 256, "invalid scene resize");
+    return 0;
+  }
+  return scene->resize ? scene->resize(scene, width, height, error) : 1;
 }
 int bk_scene_draw(BkScene *scene, const BkSceneFrame *frame, char error[256]) {
   if (!scene || !frame) {

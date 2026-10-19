@@ -725,6 +725,20 @@ static int load(GamePreview *g, const BkSceneServices *services,
   g->ready = 1;
   return 1;
 }
+static int resize(void *context, unsigned width, unsigned height,
+                  char error[256]) {
+  GamePreview *g = context;
+  if (!g || !width || !height ||
+      !bk_camera_fit(&g->viewport, width, height, 4, 3)) {
+    snprintf(error, 256, "game preview: invalid resize viewport");
+    return 0;
+  }
+  g->width = width;
+  g->height = height;
+  g->screenshot_request.crop = g->viewport;
+  return 1;
+}
+
 BkScene *bk_game_preview_create_entry(const BkSceneServices *services,
                                       BkGameFrameState *retained,
                                       const BkEntryProgress *progress,
@@ -771,7 +785,8 @@ BkScene *bk_game_preview_create_entry(const BkSceneServices *services,
     return NULL;
   }
   BkScene *scene =
-      bk_scene_custom_create(g, (BkSceneCustomOps){step, draw, destroy}, error);
+      bk_scene_custom_create(g, (BkSceneCustomOps){.step = step, .draw = draw, .destroy = destroy,
+                                     .resize = resize}, error);
   if (!scene)
     destroy(g);
   return scene;

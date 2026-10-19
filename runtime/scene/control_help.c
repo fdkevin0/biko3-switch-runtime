@@ -147,6 +147,14 @@ bad:
 }
 int bk_control_help_draw(BkControlHelp *s, BkControlHelpPage page, char e[256]) {
   if (!s || page<0 || page>=BK_HELP_COUNT) { snprintf(e,256,"invalid control help page"); return 0; }
+  unsigned width, height;
+  BkViewport view;
+  bk_renderer_extent(s->renderer, &width, &height);
+  if (!bk_camera_fit(&view, width, height, 4, 3)) {
+    snprintf(e, 256, "control help: invalid resize viewport");
+    return 0;
+  }
+  s->bar = (BkViewport){0, view.y, view.x, view.height};
   if (!s->bar.width || page==BK_HELP_NONE) return 1;
   if (!bk_renderer_viewport(s->renderer,&s->bar,e) ||
       !bk_renderer_draw_mesh(s->renderer,s->font,s->pages[page],bk_identity,

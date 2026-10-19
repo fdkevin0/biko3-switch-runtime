@@ -67,6 +67,17 @@ void bk_pause_preview_clock(BkScene *scene, double elapsed) {
   if (p)
     p->elapsed = elapsed;
 }
+static int resize(void *context, unsigned width, unsigned height,
+                  char error[256]) {
+  PausePreview *p = context;
+  if (!p || !width || !height ||
+      !bk_camera_fit(&p->viewport, width, height, 4, 3)) {
+    snprintf(error, 256, "pause preview: invalid resize viewport");
+    return 0;
+  }
+  return 1;
+}
+
 static int step(void *context, double seconds, const BkInput *input,
                 char error[256]) {
   PausePreview *p = context;
@@ -203,7 +214,7 @@ BkScene *bk_pause_preview_create_shared(const BkSceneServices *services,
   if (!bindings && !step(p, 1.0 / 60, &initial, error))
     goto fail;
   BkScene *scene =
-      bk_scene_custom_create(p, (BkSceneCustomOps){step, draw, destroy}, error);
+      bk_scene_custom_create(p, (BkSceneCustomOps){.step = step, .draw = draw, .destroy = destroy, .resize = resize}, error);
   if (!scene)
     destroy(p);
   return scene;

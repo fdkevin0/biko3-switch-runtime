@@ -29,6 +29,9 @@ int bk_renderer_resize(BkRenderer *, unsigned width, unsigned height,
 - 保留 render pass、pipeline、texture、mesh 等与 extent 无关的对象。
 - 修复：`end()` 后帧仍处于 submitted 状态，下一次 begin 前收到 resize 不应被误报
   “active frame”；现在只拒绝真正的 active frame，submitted 由 device idle 收尾。
+- 第二次修复：resize 后不仅重建 renderer，还通过 `bk_scene_resize()` 通知当前
+  scene/session 重新计算缓存的 4:3 viewport。此前旧 viewport 大于缩小后的
+  drawable 会触发 `invalid or inactive viewport` 并退出。
 
 ### 3. 帧率上限
 
@@ -53,8 +56,8 @@ macOS 主循环在呈现后按目标帧预算 idle；ProMotion 120Hz 屏不再�
 - Linux 主机构建 `biko3-preview` 通过；
 - macOS `darwin.c` 以 SDL3/Vulkan 头文件 `-Wall -Wextra -Werror -fsyntax-only`
   通过；
-- 未在真实 macOS 窗口上测试 F11/拖拽 resize；swapchain 路径只做了编译和
-  offscreen 路径验证，不能宣称实机通过。
+- 未在真实 macOS 窗口上测试 F11/拖拽 resize；swapchain 和 scene callback
+  路径只做了编译/offscreen 验证，不能宣称实机通过。
 
 ## 仍未完成
 

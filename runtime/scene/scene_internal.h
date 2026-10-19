@@ -7,6 +7,8 @@ struct BkScene {
               char error[256]);
   int (*draw)(BkScene *scene, const BkSceneFrame *frame, char error[256]);
   void (*destroy)(BkScene *scene);
+  int (*resize)(BkScene *scene, unsigned width, unsigned height,
+                char error[256]);
 };
 BkScene *bk_title_create(const BkSceneServices *services, char error[256]);
 BkScene *bk_static_world_create(const BkSceneServices *services,

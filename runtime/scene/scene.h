@@ -34,12 +34,19 @@ typedef struct {
   int (*step)(void *, double, const BkInput *, char error[256]);
   int (*draw)(void *, const BkSceneFrame *, char error[256]);
   void (*destroy)(void *);
+  /* Optional: recompute cached viewports/UI layout after a drawable resize.
+   * NULL means the scene derives layout per frame and needs no notification. */
+  int (*resize)(void *, unsigned, unsigned, char error[256]);
 } BkSceneCustomOps;
 /* App-owned scenes can use the same lifecycle without reaching into the
  * private scene ABI. The scene layer owns this wrapper and calls destroy once.
  */
 BkScene *bk_scene_custom_create(void *context, BkSceneCustomOps,
                                 char error[256]);
+/* Notify the scene that the drawable changed. Scenes without cached layout
+ * may ignore it; the call is outside an active GPU frame. */
+int bk_scene_resize(BkScene *scene, unsigned width, unsigned height,
+                    char error[256]);
 /* Services outlive scene. Constructor loads all resources before first draw.
  * Unsupported scenes fail explicitly. Scene owns textures and CPU scene data.
  * Renderer begin/end and simulation scheduling belong to the application. */

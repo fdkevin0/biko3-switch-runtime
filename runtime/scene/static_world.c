@@ -145,7 +145,10 @@ static BkScene *create(const BkSceneServices *services, int clip_camera,
     snprintf(error, 256, "static scene allocation failed");
     return NULL;
   }
-  s->base = (BkScene){step, draw, destroy};
+  s->base = (BkScene){.step = step,
+                        .draw = draw,
+                        .destroy = destroy,
+                        .resize = NULL};
   s->renderer = services->renderer;
   if (bk_resources_read(services->resources, "bk3_03", "m01_04.x", &blob,
                         error) != BK_RESOURCE_OK ||
