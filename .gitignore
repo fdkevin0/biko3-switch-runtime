@@ -7,3 +7,6 @@ build-switch/
 __pycache__/
 .DS_Store
 build-native/
+
+build-macos/
+dist/

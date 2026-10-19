@@ -14,6 +14,7 @@
 - **原版直装 NSP**：名称「尾行3」、作者 `ILLUSION`、版本 `1.0.78`、TitleID `01094F68D7330000`，内置完整日文 Data，未装入补丁。游戏内照片及进度写入所选用户的 HOS 存档。[打包与存储验证](reports/nsp-1.0.78.md)
 - **汉化与去码更新 NSP**：Patch TitleID `01094F68D7330800`，显示版本 `1.0.79cn`，包含程序及合并补丁，安装在本体之上，共用本体的 HOS 存档。采用 BKTR 差分格式，约 49 MB。[更新包检查](reports/nsp-update-1.0.79.md)
 - **Linux 原生运行 / Steam**：新增 SDL3 + Vulkan 桌面后端，支持全屏、键盘/鼠标/触屏和最多 4 个手柄；`install-steam.sh` 一键写入 Steam 库与封面。Switch 分支、链接库和 NRO 打包未改动。[Linux 说明](docs/linux-native.md)
+- **macOS 原生运行**：新增 Darwin 平台后端（SDL3 + MoltenVK），`build-macos.sh` 构建，`tools/package_macos_app.sh` 打包 `Biko3.app`；数据/存档放在 `~/Library/Application Support/Biko3`。[macOS 说明](docs/macos-native.md)
 
 - **减少渲染重复提交**：缓存同一命令缓冲中的图形状态绑定；固定测试片段中，绑定调用从 2,291,089 次降至 1,247,714 次，减少约 **45.5%**，画面和照片保持一致。[验证记录](reports/vulkan-bindings.md)
 - **减少 NPC 无效遮挡计算**：视野外或已经确认被遮挡后停止继续检查视线三角形，地面高度与行为仍正常更新。[验证记录](reports/npc-occlusion-performance.md)
@@ -71,6 +72,28 @@ SDL 手柄。
 glslangValidator。`BK_SWITCH` 分支、Switch 链接库和 NRO 打包流程保持
 原样；桌面新增文件只在 `BK_NATIVE_WINDOW` 时编译。按键表、构建细节和
 已知限制见 [Linux 原生运行](docs/linux-native.md)。
+
+## macOS 原生运行
+
+同一套 SDL3 桌面后端新增了 Darwin 平台层（`runtime/platform/darwin.c`）：
+窗口、键盘/鼠标/手柄与音频走 SDL3（CoreAudio），Vulkan 通过
+**MoltenVK** 映射到 Metal。构建：
+
+```sh
+brew install cmake sdl3 molten-vk vulkan-loader vulkan-headers glslang
+./build-macos.sh
+```
+
+默认数据目录 `~/Library/Application Support/Biko3/game`（包含 `Data/`，
+可选 `patch.pp`），存档/照片写入 `~/Library/Application
+Support/Biko3/{save,captures,album}`。打包：
+
+```sh
+./tools/package_macos_app.sh          # 生成 dist/Biko3.app
+```
+
+构建、运行、MoltenVK 排障和当前验证范围见
+[macOS 原生运行](docs/macos-native.md)。游戏数据不进入 app 或源码包。
 
 ## 构建
 
