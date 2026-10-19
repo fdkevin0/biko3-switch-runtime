@@ -5,9 +5,10 @@
   "format": "BKPT2 within inline PP",
   "version": 2,
   "flags": 1,
+  "chinese_font_sha256": "725f52c2b6d5d18ff8c4b2894dbf73cd10cd31a79880c7bc123e03e6008bcffc",
   "resources": 234,
   "output_bytes": 15791467,
-  "output_sha256": "3104970755de6c49470c07c8b8b8adb19791b25f7fd71b3f2c9e88413e9d3ea3",
+  "output_sha256": "173ebb9c71882bc994c444b94c3793c3cd3d09d977798d54afe750d8e3792c75",
   "resource_counts": {
     "bk3_00": 201,
     "bk3_01": 1,

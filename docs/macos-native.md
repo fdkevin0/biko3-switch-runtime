@@ -66,7 +66,7 @@ cmake --build build-macos --parallel 8 --target biko3-preview
 ## 运行
 
 ```sh
-# 默认 1280×720 窗口
+# 默认 960×720（4:3）窗口
 ./build-macos/biko3
 
 # 临时全屏启动（不写配置）
@@ -82,7 +82,7 @@ BIKO3_FULLSCREEN=1 ./build-macos/biko3
 ```ini
 # ~/Library/Application Support/Biko3/settings.cfg
 windowed=1        # 0 = 启动时全屏，1 = 窗口
-width=1280
+width=960
 height=720
 show_help=0       # 左侧操作说明，默认关闭；F2 切换
 show_fps=0        # F1 切换
@@ -138,13 +138,13 @@ Vulkan swapchain/帧缓冲。画面按原版 **4:3** 居中；在 16:9 窗口/�
 ### 鼠标与 Retina 坐标
 
 SDL3 的鼠标事件使用**窗口坐标（points）**，而游戏内部指针/视口使用
-**渲染像素**。在 2x Retina 屏幕上，1280×720 窗口的实际 drawable 是
+**渲染像素**。在 2x Retina 屏幕上，960×720 4:3 窗口的实际 drawable 是
 2560×1440；`darwin.c` 用 `SDL_GetWindowSize()` 与当前 drawable 像素尺寸的
 比例把事件换算到渲染像素，避免光标只覆盖屏幕一半或整体偏移。启动日志会
 打印：
 
 ```text
-Input: window 1280x720 points, drawable 2560x1440 pixels, pointer scale 2.00x/2.00x
+Input: window 960x720 points, drawable 1920x1440 pixels, pointer scale 2.00x/2.00x
 ```
 
 游戏默认隐藏 macOS 系统箭头（原版通过 `ShowCursor(FALSE)` 隐藏并绘制
@@ -200,7 +200,7 @@ Input: window 1280x720 points, drawable 2560x1440 pixels, pointer scale 2.00x/2.
 - 默认构建为当前机器架构；通用二进制需要匹配的 MoltenVK。
 - 全屏使用 macOS 的独立 Space（`SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES`），
   切换 Space 可能触发窗口像素尺寸变化；如遇画面尺寸异常请反馈。
-- 窗口模式固定 1280×720；全屏分辨率取桌面当前模式，运行中不切换分辨率。
+- 窗口默认 960×720（4:3），可缩放；全屏分辨率取桌面当前模式，`F11` 运行时切换。
 - 照片/存档格式是 runtime 自己的格式，不自动导入原版 `.ckp` 存档。
 - 提交或分发前请遵守仓库/作者的授权约定；游戏数据、补丁、字体等素材
   不随源码分发。

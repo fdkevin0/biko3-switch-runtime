@@ -47,7 +47,7 @@ void bk_settings_defaults(BkSettings *settings) {
     return;
   *settings = (BkSettings){
       .windowed = 1,
-      .width = 1280,
+      .width = 960,
       .height = 720,
       .show_help = 0,
       .show_fps = 0,

@@ -84,7 +84,7 @@ brew install cmake sdl3 molten-vk vulkan-loader vulkan-headers glslang
 ./build-macos.sh
 ```
 
-默认 1280×720 窗口，可拖动缩放；`F11` 或 `Cmd+Ctrl+F` 运行时切换全屏，
+默认 960×720（4:3）窗口，可拖动缩放；`F11` 或 `Cmd+Ctrl+F` 运行时切换全屏，
 `settings.cfg` 可设置窗口尺寸、帮助/FPS 显示、`fps_cap`（默认 60；0 跟随
 显示器）。`F1`/`F2` 分别切换 FPS/操作说明。默认数据目录
 `~/Library/Application Support/Biko3/game`（包含 `Data/`，可选
@@ -152,10 +152,11 @@ python3 tools/prepare_combined_patch.py \
 python3 tools/prepare_chinese_patch.py \
   local/game/MAINDIR \
   '尾行3绿色免安装简体中文版' \
-  dist/chinese-patch/patch.pp
+  dist/chinese-patch/patch.pp \
+  --font dist/chinese-patch/font-pretty/Type_S.FTT
 ```
 
-生成器逐资源比较原版与中文数据，只收录 234 项本地化资源；`patch.cfg` 为 BKPT2、flags=1（中文），字体以原日文字库为基底叠加 3DH 中文字形。`setting.cfg`、`bk3_Red.b3f` 等非翻译差异会跳过。输出 `patch.pp` 放在游戏数据根目录即可；macOS 路径见[macOS 原生运行](docs/macos-native.md)。本次生成的本地样本为 15,791,467 字节，SHA256 `3104970755de6c49470c07c8b8b8adb19791b25f7fd71b3f2c9e88413e9d3ea3`，验证范围见[纯中文外挂记录](reports/chinese-patch.md)。
+生成器逐资源比较原版与中文数据，只收录 234 项本地化资源；`patch.cfg` 为 BKPT2、flags=1（中文），字体以原日文字库为基底叠加中文字形。`--font` 可选：不给时沿用 3DH 字库，给出时用 `tools/ftt_font_render.c` 生成的 Noto Sans CJK 等 FTT；当前样本使用 Noto Sans CJK SC Medium（SIL OFL 1.1）。`setting.cfg`、`bk3_Red.b3f` 等非翻译差异会跳过。输出 `patch.pp` 放在游戏数据根目录即可；macOS 路径见[macOS 原生运行](docs/macos-native.md)。本次生成的本地样本为 15,754,991 字节，SHA256 `173ebb9c71882bc994c444b94c3793c3cd3d09d977798d54afe750d8e3792c75`，验证范围见[纯中文外挂记录](reports/chinese-patch.md)。
 
 ### 汉化 + 去码
 
@@ -166,10 +167,11 @@ python3 tools/prepare_chinese_patch.py \
   local/game/MAINDIR \
   '尾行3绿色免安装简体中文版' \
   dist/chinese-patch/patch-cn-uncensored.pp \
-  --uncensored '路径/Bk3msc_updatex_05_02_02/Patch.3dh'
+  --uncensored '路径/Bk3msc_updatex_05_02_02/Patch.3dh' \
+  --font dist/chinese-patch/font-pretty/Type_S.FTT
 ```
 
-本次本地样本为 33,556,071 字节，SHA256 `9a4a3819d5b56372b7e2e59a1d750b2b54b307e2bb7c99cc24f0cb4fd94bb670`，共 328 项资源、flags=3；验证范围见[中文+去码外挂记录](reports/chinese-patch.md#汉化--去码)。
+本次本地样本为 33,519,595 字节，SHA256 `1eef15de3a47c5265a4279289c452ba611be17cbd4ddab0653da2bbcf029e161`，共 328 项资源、flags=3；验证范围见[中文+去码外挂记录](reports/chinese-patch.md#汉化--去码)。
 
 ## 原版直装 NSP
 

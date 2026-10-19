@@ -226,7 +226,8 @@ def merge_uncensored(records: dict[str, Record], expected: dict[str, bytes],
 
 
 def build(base_root: Path, chinese_root: Path, output: Path, force: bool,
-          uncensored: Path | None = None) -> tuple[dict, dict[str, bytes]]:
+          uncensored: Path | None = None,
+          chinese_font: Path | None = None) -> tuple[dict, dict[str, bytes]]:
     base_data = data_dir(base_root)
     chinese_data = data_dir(chinese_root)
     if not base_data.is_dir() or not chinese_data.is_dir():
@@ -235,6 +236,8 @@ def build(base_root: Path, chinese_root: Path, output: Path, force: bool,
         raise ValueError(f"output already exists: {output}")
     if uncensored and sha_file(uncensored) != UNCENSORED_HASH:
         raise ValueError("unsupported uncensored Patch.3dh version")
+    if chinese_font and not chinese_font.is_file():
+        raise ValueError(f"Chinese font not found: {chinese_font}")
 
     base_pp = {p.name.lower(): p for p in base_data.glob("*.pp")}
     chinese_pp = {p.name.lower(): p for p in chinese_data.glob("*.pp")}
@@ -277,10 +280,10 @@ def build(base_root: Path, chinese_root: Path, output: Path, force: bool,
                           if p.name.lower() == name.lower()), None)
         chinese_path = next((p for p in chinese_data.iterdir()
                              if p.name.lower() == name.lower()), None)
-        if not base_path or not chinese_path:
+        if not base_path or (not chinese_font and not chinese_path):
             raise ValueError(f"missing {name} in base or Chinese Data")
         before = base_path.read_bytes()
-        after = font_overlay(before, chinese_path.read_bytes())
+        after = font_overlay(before, (chinese_font or chinese_path).read_bytes())
         add_full(records, expected, evidence, translated, f"fonts.{name}",
                  before, after, "fonts", name)
 
@@ -315,6 +318,8 @@ def build(base_root: Path, chinese_root: Path, output: Path, force: bool,
         "chinese_data": str(chinese_data.resolve()),
         "uncensored_source": str(uncensored.resolve()) if uncensored else None,
         "uncensored_source_sha256": sha_file(uncensored) if uncensored else None,
+        "chinese_font": str(chinese_font.resolve()) if chinese_font else None,
+        "chinese_font_sha256": sha_file(chinese_font) if chinese_font else None,
         "changed_packs": changed_packs,
         "identical_packs": identical_packs,
         "ignored_non_localization_files": ignored,
@@ -413,11 +418,13 @@ def main() -> None:
     parser.add_argument("output", type=Path, help="output patch.pp")
     parser.add_argument("--uncensored", type=Path,
                         help="optional 3DH 去马赛克 Patch.3dh; sets flags=3")
+    parser.add_argument("--font", type=Path,
+                        help="optional Chinese FTT to use instead of the 3DH font")
     parser.add_argument("--force", action="store_true", help="replace an existing output")
     args = parser.parse_args()
     try:
         report, expected = build(args.base, args.chinese, args.output,
-                                 args.force, args.uncensored)
+                                 args.force, args.uncensored, args.font)
         verify(args.output, report, expected)
     except (OSError, ValueError, StopIteration, KeyError) as error:
         print(f"error: {error!r}", file=sys.stderr)

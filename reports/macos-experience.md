@@ -18,7 +18,7 @@
 
 ```ini
 windowed=1
-width=1280
+width=960
 height=720
 show_help=0
 show_fps=0
@@ -35,7 +35,7 @@ game_path=
 
 `darwin.c` 在创建窗口前读取配置：
 
-- 默认 **1280×720 窗口**，不再默认全屏；
+- 默认 **960×720（4:3）窗口**，不再默认全屏；
 - `windowed=0` 或 `BIKO3_FULLSCREEN=1` 可全屏启动；
 - 窗口尺寸由 `width`/`height` 控制，逻辑点坐标，Retina 下仍使用 drawable 像素；
 - 全屏切换/运行中改窗口大小目前需要重启（swapchain 重建属于下一批，不在本轮

@@ -27,13 +27,13 @@ int main(void) {
   char error[256] = {0};
 
   bk_settings_defaults(&settings);
-  CHECK(settings.windowed == 1 && settings.width == 1280 &&
+  CHECK(settings.windowed == 1 && settings.width == 960 &&
         settings.height == 720 && !settings.show_help &&
         !settings.show_dev_overlay && settings.fps_cap == 60 &&
         !settings.invert_look);
 
   CHECK(bk_settings_load(&settings, root, error));
-  CHECK(settings.windowed == 1 && settings.width == 1280);
+  CHECK(settings.windowed == 1 && settings.width == 960);
 
   settings.windowed = 0;
   settings.width = 1600;
@@ -83,7 +83,7 @@ int main(void) {
   CHECK(snprintf(missing, sizeof(missing), "%s/none", root) <
         (int)sizeof(missing));
   CHECK(bk_settings_load(&loaded, missing, error));
-  CHECK(loaded.width == 1280);
+  CHECK(loaded.width == 960);
   CHECK(!bk_settings_load(&loaded, "", error));
 
   CHECK(remove(path) == 0);
