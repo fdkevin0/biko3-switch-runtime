@@ -78,9 +78,6 @@ int bk_item_feedback_reload_message(BkItemFeedback *f, BkResourceStore *store,
     return fail(error, "missing instance");
   return bk_dialogue_assets_load(&f->dialogue, store, "i00_00.txt", error);
 }
-const BkDialogue *bk_item_feedback_dialogue(const BkItemFeedback *f) {
-  return f ? &f->dialogue.state : NULL;
-}
 
 void bk_item_feedback_close_message(BkItemFeedback *f) {
   if (f)

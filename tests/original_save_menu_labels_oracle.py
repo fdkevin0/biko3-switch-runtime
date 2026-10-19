@@ -1,7 +1,8 @@
 """Original50a2ae ten save rows,with only its509fd2 disk refresh intercepted.
 Original string copies, fullwidth GBK digit/punctuation selection and fixed
 stamp[2..15] traversal run x86. The port's explicit Japanese localization is
-independently checked with Python GBK->Unicode, 场景号->エリア, then CP932.
+independently checked with Python GBK->Unicode, 场景号->エリア, then CP932;
+Chinese output is compared directly with the original GBK bytes.
 This does not claim unpacked Japanese executable literal or screenshot parity.
 """
 import argparse,ctypes as C,hashlib,json,random,struct
@@ -24,7 +25,7 @@ class Native(Base):
   return bytes(self.u.mem_read(0x300a000,512)).split(b'\0')[0]
 def main():
  ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('exe',type=Path);a=ap.parse_args();exe=a.exe.read_bytes();n=Native(exe);lib=library();rng=random.Random(0x50a2ae);e=C.create_string_buffer(256);total=0
- lib.bk_save_menu_labels.argtypes=[C.c_void_p,C.c_void_p,C.POINTER(C.c_size_t),C.c_void_p]
+ lib.bk_save_menu_labels.argtypes=[C.c_void_p,C.c_int,C.c_void_p,C.POINTER(C.c_size_t),C.c_void_p]
  for case in range(1500):
   rows=(Label*10)()
   for row in rows:
@@ -32,13 +33,15 @@ def main():
    if case%3==0:row.stamp=rng.choice([b'',b'2026/09/28-01:02:03'])
    elif case%3==1:row.stamp=b'2000/02/29-23:59:59'
    else:row.stamp=bytes(rng.choice(b'0123456789/-:XYZ ?') for _ in range(31))
-  expected=n.run(case%5,rows).decode('gbk').replace('场景号','エリア').encode('cp932');out=C.create_string_buffer(512);size=C.c_size_t()
-  assert lib.bk_save_menu_labels(rows,out,C.byref(size),e),e.value
-  assert out.raw[:size.value]==expected,(case,size.value,len(expected));assert out.raw[size.value]==0;total+=size.value
+  original=n.run(case%5,rows)
+  for chinese in range(2):
+   expected=original if chinese else original.decode('gbk').replace('场景号','エリア').encode('cp932');out=C.create_string_buffer(512);size=C.c_size_t()
+   assert lib.bk_save_menu_labels(rows,chinese,out,C.byref(size),e),e.value
+   assert out.raw[:size.value]==expected,(case,chinese,size.value,len(expected));assert out.raw[size.value]==0;total+=size.value
  # Invalid occupied area rejects atomically; empty slots never inspect area.
  rows[0].area=9;rows[0].stamp=b'2026/09/28-01:02:03';before=out.raw;old=size.value
- assert not lib.bk_save_menu_labels(rows,out,C.byref(size),e);assert before==out.raw and old==size.value
- rows[0].stamp=b'';assert lib.bk_save_menu_labels(rows,out,C.byref(size),e)
- report=dict(passed=True,exe_sha256=hashlib.sha256(exe).hexdigest(),banks=1500,rows=15000,bytes_compared=total,scope=__doc__)
- (ROOT/'local/original-save-menu-labels-jp-oracle.json').write_text(json.dumps(report,indent=2)+'\n');print('PASS save-menu-labels-jp',report)
+ assert not lib.bk_save_menu_labels(rows,1,out,C.byref(size),e);assert before==out.raw and old==size.value
+ rows[0].stamp=b'';assert lib.bk_save_menu_labels(rows,1,out,C.byref(size),e)
+ report=dict(passed=True,exe_sha256=hashlib.sha256(exe).hexdigest(),banks=1500,rows=15000,locales=2,bytes_compared=total,scope=__doc__)
+ (ROOT/'local/original-save-menu-labels-oracle.json').write_text(json.dumps(report,indent=2)+'\n');print('PASS save-menu-labels',report)
 if __name__=='__main__':main()

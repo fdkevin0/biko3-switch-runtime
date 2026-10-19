@@ -42,7 +42,6 @@ const BkFaceState *bk_special_world_face_state(const BkSpecialWorld *);
 BkSceneLighting *bk_special_world_lighting(BkSpecialWorld *);
 BkEndingCameraPresets *bk_special_world_presets(BkSpecialWorld *);
 uint32_t bk_special_world_root(const BkSpecialWorld *, unsigned object);
-uint32_t bk_special_world_focus(const BkSpecialWorld *);
 /* Body model frame index, not a forest node. */
 uint32_t bk_special_world_back(const BkSpecialWorld *);
 int bk_special_world_needs_movie(const BkSpecialWorld *);

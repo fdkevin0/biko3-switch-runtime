@@ -2,7 +2,6 @@
 #define BK_SCENE_ITEM_FEEDBACK_H
 #include "game/item.h"
 #include "media/audio.h"
-#include "resource/dialogue.h"
 #include "resource/message.h"
 typedef struct BkItemFeedback BkItemFeedback;
 /* Normal item service load: owns bk3_05/i00_00.txt and bk3_02/se101.wav,
@@ -28,7 +27,6 @@ const BkMessage *bk_item_feedback_message(const BkItemFeedback *);
  * replacing the se101 clip. Message pointer identity remains stable. */
 int bk_item_feedback_reload_message(BkItemFeedback *, BkResourceStore *,
                                     char error[256]);
-const BkDialogue *bk_item_feedback_dialogue(const BkItemFeedback *);
 void bk_item_feedback_close_message(BkItemFeedback *);
 /*4ef018 releases the pickup buffer;4ec9f0 recreates it without losing the
  * separate retained dialogue metadata. Neither reload starts playback. */

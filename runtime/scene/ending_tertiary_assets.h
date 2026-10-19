@@ -55,7 +55,6 @@ BkActorForest *bk_ending_tertiary_assets_forest(BkEndingTertiaryAssets *);
 uint32_t bk_ending_tertiary_assets_registry(const BkEndingTertiaryAssets *, unsigned role);
 BkActorPose *bk_ending_tertiary_assets_pose(BkEndingTertiaryAssets *, unsigned role);
 uint32_t bk_ending_tertiary_assets_root(const BkEndingTertiaryAssets *, unsigned role);
-const char *bk_ending_tertiary_assets_model_name(const BkEndingTertiaryAssets *, unsigned role);
 /* Primary model-level effects and FAM targets are checked disjoint. Both
  * auxiliary effects belong exclusively to bom(); no duplicate live buffers
  * or materials may be created by the renderer. Tracks have no effect owner. */

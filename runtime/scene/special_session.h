@@ -63,6 +63,5 @@ int bk_special_session_step(BkSpecialSession *, float seconds,
  * then snapshots UI. Repeated draws do no CPU/input/capture/audio work.*/
 int bk_special_session_draw(BkSpecialSession *, char[256]);
 int bk_special_session_after_present(BkSpecialSession *, char[256]);
-BkSpecialWorld *bk_special_session_world(BkSpecialSession *);
 const BkVirtualPointer *bk_special_session_pointer(const BkSpecialSession *);
 #endif

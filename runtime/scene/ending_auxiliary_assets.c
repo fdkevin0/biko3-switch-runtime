@@ -389,22 +389,10 @@ int bk_ending_auxiliary_assets_material_alpha(BkEndingAuxiliaryAssets *a,
   }
   return 1;
 }
-const BkMaterialAnimation *bk_ending_auxiliary_assets_material_animation(
-    const BkEndingAuxiliaryAssets *a, unsigned actor) {
-  const AuxiliaryActor *p = effect_actor(a, actor);
-  return p ? p->animation : NULL;
-}
 const BkMorphGroup *bk_ending_auxiliary_assets_morph(
     const BkEndingAuxiliaryAssets *a, unsigned actor) {
   const AuxiliaryActor *p = effect_actor(a, actor);
   return p ? p->morph : NULL;
-}
-const BkMorphMesh *bk_ending_auxiliary_assets_mesh(
-    const BkEndingAuxiliaryAssets *a, unsigned actor, uint32_t submesh) {
-  const AuxiliaryActor *p = effect_actor(a, actor);
-  if (!p) return NULL;
-  const BkMorphMesh *mesh = bk_morph_group_mesh(p->morph, submesh);
-  return mesh || actor != 0 ? mesh : bk_face_assets_mesh(a->face, submesh);
 }
 uint32_t bk_ending_auxiliary_assets_root(const BkEndingAuxiliaryAssets *a,
                                          unsigned actor) {

@@ -113,9 +113,6 @@ static BkGpuMesh *page_mesh(BkControlHelp *s, const char *text, char e[256]) {
 done:
   free(vertices); free(indices); return mesh;
 }
-BkControlHelp *bk_control_help_create(BkRenderer *r, char e[256]) {
-  return bk_control_help_create_language(r, 0, e);
-}
 BkControlHelp *bk_control_help_create_language(BkRenderer *r, int chinese, char e[256]) {
   BkControlHelp *s = calloc(1, sizeof(*s));
   if (!s) { snprintf(e,256,"control help allocation failed"); return NULL; }

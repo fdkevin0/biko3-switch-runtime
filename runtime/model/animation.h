@@ -51,31 +51,6 @@ int bk_model_animation_pose(const BkModelAnimation *animation,
                             const BkModelPoseSample *sample,
                             const BkModelRootTransform *root, float *world,
                             size_t float_count, char error[256]);
-/* Compose asset locals without sampling ANIM, using the same validated root
- * placement. Used before the first animation submission/traversal. */
-int bk_model_animation_base_pose(const BkModelAnimation *animation,
-                                 const BkModelRootTransform *root, float *world,
-                                 size_t float_count, char error[256]);
-/* Evaluate world and optionally local matrices in one atomic operation.
- * sample=NULL selects asset base locals. Output arrays must not overlap.
- * Locals include the supplied external root and precede hierarchy traversal;
- * gameplay uses them for native local head angles before world publication. */
-int bk_model_animation_matrices(const BkModelAnimation *animation,
-                                const BkModelPoseSample *sample,
-                                const BkModelRootTransform *root, float *world,
-                                float *local, size_t float_count,
-                                char error[256]);
-/* Incremental native submission: begin with previous locals, replace ONLY
- * tracked frames when sample!=NULL. Unanimated roots follow explicit root
- * placement as above; all other untracked edits persist. NULL sample holds
- * all tracked locals too. Inputs may alias an output; outputs may not overlap.
- * Failure leaves outputs unchanged. */
-int bk_model_animation_update(const BkModelAnimation *animation,
-                              const BkModelPoseSample *sample,
-                              const BkModelRootTransform *root,
-                              const float *previous_local, float *world,
-                              float *local, size_t float_count,
-                              char error[256]);
 /* Playback fast path. local/world are the caller's inactive double-buffer
  * outputs and may be modified if evaluation fails; previous_local remains the
  * published pose. This avoids a malloc/free pair on every animation tick. */

@@ -234,6 +234,3 @@ int bk_dialogue_session_after_present(BkDialogueSession *s, char e[256]) {
 int bk_dialogue_session_released(const BkDialogueSession *s) {
   return s && s->released;
 }
-BkDialogueWorld *bk_dialogue_session_world(BkDialogueSession *s) {
-  return s ? s->world : NULL;
-}

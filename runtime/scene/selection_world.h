@@ -29,7 +29,6 @@ BkSelectionActorAssets *bk_selection_world_body(BkSelectionWorld *);
 BkActorForest *bk_selection_world_forest(BkSelectionWorld *);
 BkSceneLighting *bk_selection_world_lighting(BkSelectionWorld *);
 uint32_t bk_selection_world_root(const BkSelectionWorld *, unsigned object);
-uint32_t bk_selection_world_focus(const BkSelectionWorld *);
 /* CPU part of505b87..50638e. Track/stage timelines and camera are retained;
  * attaching the replacement refreshes every connected published cache.
  * On success transfers OLD body ownership to *retired. Its GPU/voice loans

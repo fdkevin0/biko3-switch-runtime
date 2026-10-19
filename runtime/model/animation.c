@@ -389,39 +389,6 @@ int bk_model_animation_pose(const BkModelAnimation *a,
   return pose(a, sample->from, sample->to, sample->weight, sample->blend,
               sample->loop, 0, root, world, NULL, NULL, 0, count, error);
 }
-int bk_model_animation_base_pose(const BkModelAnimation *a,
-                                 const BkModelRootTransform *root, float *world,
-                                 size_t count, char error[256]) {
-  return pose(a, 0, 0, 0, 0, 0, 1, root, world, NULL, NULL, 0, count,
-              error);
-}
-int bk_model_animation_matrices(const BkModelAnimation *a,
-                                const BkModelPoseSample *sample,
-                                const BkModelRootTransform *root, float *world,
-                                float *local, size_t count, char error[256]) {
-  if (local && local == world)
-    return fail(error, "local and world outputs overlap");
-  if (!sample)
-    return pose(a, 0, 0, 0, 0, 0, 1, root, world, local, NULL, 0, count,
-                error);
-  return pose(a, sample->from, sample->to, sample->weight, sample->blend,
-              sample->loop, 0, root, world, local, NULL, 0, count, error);
-}
-
-int bk_model_animation_update(const BkModelAnimation *a,
-                              const BkModelPoseSample *sample,
-                              const BkModelRootTransform *root,
-                              const float *previous_local, float *world,
-                              float *local, size_t count, char error[256]) {
-  if (!previous_local || !local || local == world)
-    return fail(error, "missing/overlapping incremental pose arrays");
-  if (!sample)
-    return pose(a, 0, 0, 0, 0, 0, 1, root, world, local, previous_local, 0,
-                count, error);
-  return pose(a, sample->from, sample->to, sample->weight, sample->blend,
-              sample->loop, 0, root, world, local, previous_local, 0, count,
-              error);
-}
 
 int bk_model_animation_update_reuse(const BkModelAnimation *a,
                                     const BkModelPoseSample *sample,

@@ -35,7 +35,7 @@ def bind(lib):
           ('destroy',[C.c_void_p],None),('replace',[C.c_void_p,C.c_uint,C.c_uint8,ip,ip,C.POINTER(C.c_void_p),C.c_void_p],C.c_int),
           ('step',[C.c_void_p,C.POINTER(Input),C.POINTER(Ops),ip,C.c_void_p],C.c_int),
           ('pose',[C.c_void_p,C.c_uint],C.c_void_p),('body',[C.c_void_p],C.c_void_p),('forest',[C.c_void_p],C.c_void_p),
-          ('root',[C.c_void_p,C.c_uint],C.c_uint32),('focus',[C.c_void_p],C.c_uint32)]
+          ('root',[C.c_void_p,C.c_uint],C.c_uint32)]
     for name,args,result in apis:
         fn=getattr(lib,'bk_selection_world_'+name);fn.argtypes=args;fn.restype=result
     lib.bk_actor_forest_draw.argtypes=[C.c_void_p,C.c_uint32,C.POINTER(C.POINTER(Visit)),ip,C.c_void_p];lib.bk_actor_forest_draw.restype=C.c_int

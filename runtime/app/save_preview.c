@@ -24,7 +24,7 @@ typedef struct {
   BkVirtualPointer pointer;
   double elapsed;
   unsigned mode, text_group;
-  int prepared, retired;
+  int chinese, prepared, retired;
 } SavePreview;
 static int refresh(void *p, unsigned group, char e[256]) {
   SavePreview *s = p;
@@ -44,7 +44,8 @@ static int refresh(void *p, unsigned group, char e[256]) {
                                               .occupied = r->stamp[0] != 0};
     memcpy(s->records[group][i].inventory, r->inventory, 5);
   }
-  if (!bk_save_menu_labels(labels, s->labels[group], &s->lengths[group], e))
+  if (!bk_save_menu_labels(labels, s->chinese, s->labels[group],
+                           &s->lengths[group], e))
     return 0;
   s->banks[group] = bank;
   return 1;
@@ -297,6 +298,7 @@ BkScene *bk_save_preview_create(const BkSceneServices *services,
   s->owner = *ops;
   s->elapsed = elapsed;
   s->mode = b->flow->previous == 0x20;
+  s->chinese = (bk_resources_patch_flags(services->resources) & BK_PATCH_CHINESE) != 0;
   unsigned group = (unsigned)(state->control.tab - 3), width, height;
   bk_renderer_extent(s->renderer, &width, &height);
   if (!bk_camera_fit(&s->viewport, width, height, 4, 3))

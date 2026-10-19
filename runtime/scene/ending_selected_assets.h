@@ -37,7 +37,6 @@ BkEndingBackgroundAssets *bk_ending_selected_assets_background(const BkEndingSel
 BkActorForest *bk_ending_selected_assets_forest(BkEndingSelectedAssets *);
 BkActorPose *bk_ending_selected_assets_pose(BkEndingSelectedAssets *, unsigned actor);
 uint32_t bk_ending_selected_assets_root(const BkEndingSelectedAssets *, unsigned actor);
-const char *bk_ending_selected_assets_model_name(const BkEndingSelectedAssets *, unsigned actor);
 int bk_ending_selected_assets_advance(BkEndingSelectedAssets *, unsigned actor,
                                       float seconds, char error[256]);
 /*Primary-only402e18/4e18ad/4a9019. Real shared ANIM/MATA/MORP sampling,

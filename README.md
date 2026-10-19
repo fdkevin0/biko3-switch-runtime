@@ -1,280 +1,39 @@
-# 尾行3 / Biko3 — Switch 原生移植工程
+# 尾行3 / Biko3 — 原生运行时
 
-**当前 NRO 版本 1.0.79，汉化更新版本 1.0.79cn，主要游戏功能已接入，可选汉化与去码外挂。** 使用 Nintendo Switch 原生输入、音频和 Vulkan NVK 渲染，画面保持 4:3，在 1280×720 输出中居中显示为 960×720。
+《尾行3》的 C11 原生移植工程。Switch 使用 libnx 和指定 Mesa NVK；macOS 使用 SDL3 + MoltenVK；Linux 使用 SDL3 + Vulkan。同一套游戏逻辑直接读取原版 `Data/`，支持可选汉化与去码 `patch.pp`。
 
-已接通原标题、五人选择、开场剧情、游戏跟踪、失败与重试、暂停与返回标题；结局、特殊场景、鉴赏回放、音量设置和相册均有实际应用入口。游戏支持动态角色、跟随镜头、碰撞、雨雪、HUD 与拍照，存读档、下一段剧情交接、动作记录、解锁、照片和音量配置也已接入。
+[文档索引](docs/README.md) · [操作说明](docs/controls.md) · [常见问题](docs/faq.md) · [开发指南](CONTRIBUTING.md) · [当前状态](docs/roadmap.md)
 
-本次工程收尾交付包含 NRO、原版直装 NSP 和汉化与去码更新 NSP。后续 Switch 安装、运行与稳定性由用户自行验证，按反馈继续维护；已有主机检查按各报告的范围记录，不等同于实机验收。默认使用日文原始资源；NRO 加入 `game/patch.pp`，或 NSP 安装更新包，可启用原汉化、去码资源及中文操作说明。
+## 快速开始
 
-## 最近更新
-
-- **结局侧栏与人物动作**：修复独白开关后切换动作时，副镜头索引重置为 `-1` 导致退出的问题；重置期间沿用主镜头，语音与流程继续正常推进。左摇杆仅在完成插入后的手动人物动作阶段加快 2 倍，其他人物动作原速；已有 L/R 镜头速度不变。[修复与验证](reports/ending-sidebar.md)
-- **中文流程文字**：修复开场空行被误算为滚动、额外消耗 A 键的问题；中文对白、流程开场/失败/道具文字放大 30%，按完整行显示。仅加载汉化时启用，日文及菜单、按键说明不变；共用文字纹理复用以减少换页重复工作。[修复与验证](reports/chinese-dialogue.md)
-- **汉化加载优化**：逐资源压缩，完整替换时跳过原资源读取；外挂由 79.1 MB 缩至 37.2 MB，109 项汉化图片、文本和字库的载荷读取量减少约 78%，全部 203 项最终资源不变。需同时更新 NRO 与 `patch.pp`。[优化与验证](reports/patch-loading.md)
-- **原版直装 NSP**：名称「尾行3」、作者 `ILLUSION`、版本 `1.0.78`、TitleID `01094F68D7330000`，内置完整日文 Data，未装入补丁。游戏内照片及进度写入所选用户的 HOS 存档。[打包与存储验证](reports/nsp-1.0.78.md)
-- **汉化与去码更新 NSP**：Patch TitleID `01094F68D7330800`，显示版本 `1.0.79cn`，包含程序及合并补丁，安装在本体之上，共用本体的 HOS 存档。采用 BKTR 差分格式，约 49 MB。[更新包检查](reports/nsp-update-1.0.79.md)
-- **Linux 原生运行 / Steam**：新增 SDL3 + Vulkan 桌面后端，支持全屏、键盘/鼠标/触屏和最多 4 个手柄；`install-steam.sh` 一键写入 Steam 库与封面。Switch 分支、链接库和 NRO 打包未改动。[Linux 说明](docs/linux-native.md)
-- **macOS 原生运行**：新增 Darwin 平台后端（SDL3 + MoltenVK），`build-macos.sh` 构建，`tools/package_macos_app.sh` 打包 `Biko3.app`；数据/存档放在 `~/Library/Application Support/Biko3`。[macOS 说明](docs/macos-native.md)
-
-- **减少渲染重复提交**：缓存同一命令缓冲中的图形状态绑定；固定测试片段中，绑定调用从 2,291,089 次降至 1,247,714 次，减少约 **45.5%**，画面和照片保持一致。[验证记录](reports/vulkan-bindings.md)
-- **减少 NPC 无效遮挡计算**：视野外或已经确认被遮挡后停止继续检查视线三角形，地面高度与行为仍正常更新。[验证记录](reports/npc-occlusion-performance.md)
-- **修复藏身退出卡住**：共用退出逻辑在动画结束时将水平位置归回进入点，修复剑道少女第五关藏身物边角退出后无法移动的问题。[验证记录](reports/hiding-exit.md)
-- **修复相册与补充操作**：修复 Switch 相册黑底和照片打不开；剧情中按住 R 强制快进，FPS 默认关闭，可用 − 切换。[验证记录](reports/album-switch-fix.md)
-
-以上调用量变化不是总 CPU 用量或实机 FPS 的降幅。Switch 矩阵与 CPU 蒙皮也已使用 NEON intrinsics 和少量内联汇编预取，并完成 ARM64 原版数值对照；具体范围见 [NEON 验证](reports/neon-skinning.md)。最新 Switch 性能收益尚未测量。
-
-NRO 名称为 `biko3-runtime`，作者字段为 `ILLUSION`，版本为 `1.0.79`，使用本地 `icon.jpg` 生成的图标。已交付正式 NRO 为 `交付/biko3-runtime.nro`，16,408,236 字节，ELF 未解析符号为 0；SHA256：
-
-```text
-31320a8ce44f8e1826fc90ed5b26cb714c551413b286f8c69adb03f9e8b07178
-```
-
-本次增量位于 `交付/汉化与去码外挂-20261001`，包含新版 NRO 和外挂；独立 NRO 在 `交付/biko3-runtime.nro`，原版直装包在 `交付/biko3-01094F68D7330000.nsp`，更新包在 `交付/biko3-01094F68D7330800-update.nsp`。对应ZIP为 `交付/biko3-01094F68D7330800-1.0.79cn-update.zip` 与 `交付/biko3-1.0.79-SD-汉化去码补丁.zip`；SD补丁ZIP包含NRO，均使用密码1234。旧的 `交付/SD卡根目录` 是历史包，不会随源码或 GitHub 推送自动更新。本次新外挂使用 BKPT2，需要与新版 NRO 一起更新，原 Data 无需重拷。
-
-《尾行3》是 Direct3D 时代的 3D 游戏，与《鬼作》的 AI6WIN 不同。本项目参考 [kisaku-switch-runtime](https://github.com/ruje0504-2/kisaku-switch-runtime) 的本地素材隔离、主机验证和 Switch 打包方式。
-
-渲染器直接静态链接 [danfromtico/mesa-switch](https://github.com/danfromtico/mesa-switch) 的 NVK，使用 `VK_NN_vi_surface` / `NWindow`。当前锁定提交 `5dba7886c56460ff47c3038e323d07b9547d6212`，Mesa 26.2.2；启动日志记录设备名称和 driver ID，并校验 Switch 使用 NVK。依赖版本见 [锁定文件](config/dependencies.lock.json)。
-
-## 验证与当前范围
-
-独白开关后的副镜头索引退出已在主机复现。修复后普通/ASan 各通过 661 帧真实输入回归，包含 600 帧索引重置和 230 帧独白播放重叠，GPU 资源回到基线；两项相关单元检查也均通过。指定 Mesa NVK 交叉构建完成，文件日志关闭。最新更新 NSP 仅完成打包器的生成检查，未追加独立包检测或实机运行测试。
-
-首次侧栏修复的普通 18 项、ASan 7 项检查，以及后续 2 倍速率的 47 项检查属于此前独立构建的证据，详见 [侧栏记录](reports/ending-sidebar.md)。侧栏「物品」是汉化贴图对原版「モノローグ」（独白）的命名，控制语音，区别于附件开关和剧情背包。
-
-此前普通与 ASan 各完成 203 项补丁资源和 10 项存储检查；封包优化时的汉化开场 1,100 帧与旧补丁逐字节一致。随后文字修复各检查 121 段真实文本 / 242 个裁切、465 帧中文 UI、150 帧日文文字和中日流程提示，另运行 1,100 帧实际开场查看放大后的画面。此前两个 NSP 提取后逐项验证原版 Data、NSO、NACP、NPDM、更新关联和内容哈希，更新包另核对合并补丁。各阶段范围见上方报告。
-
-此前渲染优化前后及 ASan 版本各回放 1,054 个游戏帧，最终画面和两张照片逐字节一致；NPC 查询与原版的 1,392 组结果一致；藏身退出修复通过同点边角复现及实际应用回放。这些是各次改动的历史证据，未在本轮扩展重跑剧情。
-
-此前雨天、存档和撞车修复已获用户实机确认；物体表面光影闪烁也已确认修复，该问题在 PC 原版存在。它们不代表最新 NRO 的整体稳定性已经验收。主机 MoltenVK 跨视口原点的微小光栅差异仍保留为[单独诊断](reports/ending-raster-origin.md)，没有通过放宽阈值将其改为通过。
-
-整体设计见 [架构与模块边界](docs/architecture.md)，各阶段当前状态见 [路线与收尾清单](docs/roadmap.md)。`reports/` 保存历次实现与验证记录，旧报告中的“尚未接应用”等描述只代表当时状态。
-
-## Linux 原生运行与 Steam
-
-同一套运行时代码新增了 Linux 桌面后端（SDL3 + Vulkan），直接读取
-`Data/` 与 `patch.pp`，在 aarch64 Linux（如 Armada OS + Adreno/Turnip）上
-原生运行，不经过模拟器或 Proton。支持全屏、键盘/鼠标/触屏和最多 4 个
-SDL 手柄。
-
-一键安装到 Steam（需要先把游戏数据放到
-`~/.local/share/biko3/game`，或用 `BIKO3_GAME` 指定）：
-
-```sh
-./install-steam.sh
-```
-
-脚本会安装运行时与启动器、桌面快捷方式，并写入当前 Steam 用户的
-`shortcuts.vdf` 和封面；缺少 `build-native/biko3` 时会先调用
-`./build-linux.sh`。启动器会把 InputPlumber 的内置手柄切到标准
-`xbox-elite` 目标，避免它只暴露 `/dev/hidraw` 而无法被 SDL 识别。
-
-桌面构建使用 `-DBK_NATIVE_WINDOW=ON`，需要 SDL3、Vulkan 头文件和
-glslangValidator。`BK_SWITCH` 分支、Switch 链接库和 NRO 打包流程保持
-原样；桌面新增文件只在 `BK_NATIVE_WINDOW` 时编译。按键表、构建细节和
-已知限制见 [Linux 原生运行](docs/linux-native.md)。
-
-## macOS 原生运行
-
-同一套 SDL3 桌面后端新增了 Darwin 平台层（`runtime/platform/darwin.c`）：
-窗口、键盘/鼠标/手柄与音频走 SDL3（CoreAudio），Vulkan 通过
-**MoltenVK** 映射到 Metal。构建：
+macOS 安装依赖、构建并运行：
 
 ```sh
 brew install cmake sdl3 molten-vk vulkan-loader vulkan-headers glslang
 ./build-macos.sh
+./build-macos/biko3
 ```
 
-默认 960×720（4:3）窗口，可拖动缩放；`F11` 或 `Cmd+Ctrl+F` 运行时切换全屏，
-`settings.cfg` 可设置窗口尺寸、帮助/FPS 显示、`fps_cap`（默认 60；0 跟随
-显示器）。macOS 菜单栏的「显示」可切换 FPS、操作说明、反转视角、全屏和帧率
-上限；`F1`/`F2` 仍可直接切换 FPS/操作说明。默认数据目录
-`~/Library/Application Support/Biko3/game`（包含 `Data/`，可选
-`patch.pp`），存档/照片写入 `~/Library/Application
-Support/Biko3/{save,captures,album}`。打包：
+首次运行可选择包含 `Data/` 的游戏目录。默认路径为 `~/Library/Application Support/Biko3/game`，`patch.pp` 与 `Data/` 同级。游戏数据和补丁素材由用户自行准备，不随源码提供。
 
-```sh
-./tools/package_macos_app.sh          # 生成 dist/Biko3.app
-```
+| 平台 | 构建 / 启动 | 详细说明 |
+| --- | --- | --- |
+| macOS | `./build-macos.sh` → `build-macos/biko3` | [窗口、设置、数据目录与 app 打包](docs/macos-native.md) |
+| Linux | `./build-linux.sh` → `build-native/biko3` | [运行与 Steam 安装](docs/linux-native.md) |
+| Switch | `./build-switch.sh` → `build-switch/biko3-runtime.nro` | [NRO、NSP 与存档](docs/switch.md) |
 
-构建、运行、MoltenVK 排障和当前验证范围见
-[macOS 原生运行](docs/macos-native.md)；第一批桌面体验设置（窗口/首次数据目录/
-操作提示/FPS/焦点暂停）见[macOS 体验记录](reports/macos-experience.md)；第二批
-运行时全屏/resize/帧率上限见[P1 记录](reports/macos-experience-p1.md)；macOS
-原生菜单栏见[菜单栏记录](reports/macos-menu.md)。
-游戏数据不进入 app 或源码包。
+Linux 的 Steam 安装入口是 `./install-steam.sh`。Switch 的 SDK 准备和交叉构建见[构建说明](docs/build.md#switch)。
 
-## 构建
+## 功能与验证范围
 
-需要 CMake 3.24+、现有 devkitPro/devkitA64、libnx、Switch expat/zstd/zlib、Python 3.12+（带 Pillow）以及 glslangValidator。版本和下载摘要统一在 `config/dependencies.lock.json`；依赖放在本项目 `local/`，不会替换系统的旧 Mesa。
+已接入标题、五人选择、剧情与跟踪、失败/重试、暂停、结局、特殊场景、鉴赏回放、音量、相册，以及进度、动作记录、解锁和照片持久化。画面保持原版 4:3，宽屏输出居中显示。
 
-```sh
-python3 tools/fetch_sdk.py
-# 将自己的正方形图标放在 icon.jpg，构建时自动转换为 256×256 JPEG。
-./build-switch.sh
-```
+当前以实际反馈维护，功能接入和主机检查不等于完整剧情或最新 Switch 实机验收。各平台进展与限制统一见[当前状态](docs/roadmap.md)，具体修复和数据见[报告索引](reports/README.md)。版本及依赖取自[锁定文件](config/dependencies.lock.json)。
 
-图标素材保留在本地，不随源码分发；可用 CMake 的 `BK_NRO_ICON` 指定其他源文件。图标转换使用 CMake 选中的 Python/Pillow；本机为 `local/venv/bin/python`，更换环境可用 `-DPython3_EXECUTABLE=/path/to/python` 指定。
+## 更多文档
 
-官方 CI SDK 的静态库没有带齐 Rust 标准库。构建使用与 SDK 完全一致的 `nightly-2026-09-23` AArch64 标准库；下载包校验 SHA-256。GitHub Actions 附件有保留期限，建议保留已验证的 `local/mesa-sdk.zip` 与 `local/rust-std.tar.xz`。附件过期时脚本明确失败，不会静默升级依赖。
-
-主机资源检查：`./build-host.sh`。macOS Vulkan 检查还需 MoltenVK：`./build-host.sh --vulkan`。`MOLTENVK_PREFIX` 可指定其安装前缀。
-
-主机使用离屏验证入口，可指定帧数和场景：`build/biko3-preview local/game/MAINDIR build/office.rgba --scene office --frames 16`。省略 `--scene` 默认 `game`，首屏为原版标题；显式 `--scene title` 保留旧标题素材检查。`BK_DEVELOPMENT_ENTRY=1` 仅供旧开发流程回归。主机入口不是桌面可玩窗口。生成目录为 `build/`、`build-switch/`；无需素材的合成测试可直接运行 `./test-host.sh`。
-
-## 原版素材
-
-原始 `尾行3 [汉化]/` 保持只读。安装包及 W02 同目录，离线提取命令：
-
-```sh
-python3 tools/prepare_game.py '尾行3 [汉化]/安装/biko3.EXE'
-python3 tools/bk3_assets.py local/game/MAINDIR/Data --json local/resource-index.json
-```
-
-提取器输出已存在时不覆盖，可传 `--output` 使用新目录。本次已经提取完成，不必重跑。提取及资源读取不启动 Windows 游戏。基础数据使用日文原始资源与 Type_S/G 字库，外挂在读取时覆盖相应资源；原版存档不会自动导入或覆盖。流程分析仍以固定摘要的可分析 EXE 为依据，日文安装 EXE 的保护壳尚未解出，证据限制见存读档报告。
-
-## 汉化与去码外挂
-
-将本次增量交付中的 `switch` 文件夹合并到 SD 卡根目录，同时更新 NRO 和 `switch/biko3/game/patch.pp`；安装新文件名后移除 SD 卡同目录中旧的 `biko3-preview.nro`。保留已有 `game/Data`，无需重新复制完整游戏。外挂为 37,165,253 字节（BKPT2），启用汉化界面、剧情、字库、中文按键说明及原去码补丁；退出后移除 `patch.pp`，下次启动恢复日文与原版效果。旧 NRO 不支持 BKPT2，新 NRO 仍支持旧 BKPT1。
-
-从自有原补丁重新生成：
-
-```sh
-python3 tools/prepare_combined_patch.py \
-  '尾行3 [汉化]/去码汉化补丁' local/game/MAINDIR \
-  local/patch-speed/patch.pp
-```
-
-输出外挂及资源摘要，不运行 Windows 安装器、不改写原数据。输出已存在时不覆盖，重新生成可指定新路径。原补丁署名/协议随本地交付保留，补丁素材不在源码仓库中。实现与检查范围见[合并补丁记录](reports/combined-patch.md)和[加载优化](reports/patch-loading.md)。
-
-### 仅中文 BKPT2 外挂
-
-如果手上是已经预打好 3DH 汉化的绿色版，而希望补丁只包含中文界面、剧本和字库（不包含去码、3DH 启动器、旧配置和存档），可由原始日文 Data 与该中文 Data 直接生成标准 `patch.pp`：
-
-```sh
-python3 tools/prepare_chinese_patch.py \
-  local/game/MAINDIR \
-  '尾行3绿色免安装简体中文版' \
-  dist/chinese-patch/patch.pp \
-  --font dist/chinese-patch/font-pretty/Type_S.FTT
-```
-
-生成器逐资源比较原版与中文数据，只收录 234 项本地化资源；`patch.cfg` 为 BKPT2、flags=1（中文），字体以原日文字库为基底叠加中文字形。`--font` 可选：不给时沿用 3DH 字库，给出时用 `tools/ftt_font_render.c` 生成的 Noto Sans CJK 等 FTT；当前样本使用 Noto Sans CJK SC Medium（SIL OFL 1.1）。`setting.cfg`、`bk3_Red.b3f` 等非翻译差异会跳过。输出 `patch.pp` 放在游戏数据根目录即可；macOS 路径见[macOS 原生运行](docs/macos-native.md)。本次生成的本地样本为 15,754,991 字节，SHA256 `173ebb9c71882bc994c444b94c3793c3cd3d09d977798d54afe750d8e3792c75`，验证范围见[纯中文外挂记录](reports/chinese-patch.md)。
-
-### 汉化 + 去码
-
-加 `--uncensored` 并指向 3DH 去马赛克压缩包内的 `Patch.3dh`，同一生成器会合并 341 项去码资源操作，输出 flags=3 的“汉化 + 去码”外挂：
-
-```sh
-python3 tools/prepare_chinese_patch.py \
-  local/game/MAINDIR \
-  '尾行3绿色免安装简体中文版' \
-  dist/chinese-patch/patch-cn-uncensored.pp \
-  --uncensored '路径/Bk3msc_updatex_05_02_02/Patch.3dh' \
-  --font dist/chinese-patch/font-pretty/Type_S.FTT
-```
-
-本次本地样本为 33,519,595 字节，SHA256 `1eef15de3a47c5265a4279289c452ba611be17cbd4ddab0653da2bbcf029e161`，共 328 项资源、flags=3；验证范围见[中文+去码外挂记录](reports/chinese-patch.md#汉化--去码)。
-
-## 原版直装 NSP
-
-本地成品 `交付/biko3-01094F68D7330000.nsp`，2,957,146,840 字节（约 2.96 GB），SHA256：
-
-```text
-85b4cf4706fd43284ab35dff0e78986334a6eb9b7ebecbbfcbf8b5978f428df6
-```
-
-安装后从 HOME 进入，名称「尾行3」、作者 `ILLUSION`、版本 `1.0.78`，图标取自 `icon.jpg`。TitleID 为 `01094F68D7330000`。包内含全部 168 个原版日文 Data 文件，不含汉化或去码补丁，也不依赖 SD 上的 NRO 与 Data 目录。
-
-游戏内 Y 键 / 拍照图标生成的照片随当前用户存档保存在 HOS SaveData，和游戏进度、音量等一起管理；配置为 2 GiB 存档及 64 MiB journal。此处的照片仍由游戏相册查看。旧 NRO 的 SD 存档 / 照片不自动迁入；继续运行 NRO 时仍使用旧 SD 路径。
-
-若另行启用外挂，Atmosphere 的 RomFS 覆盖位置是 `atmosphere/contents/01094F68D7330000/romfs/patch.pp`，使用同一份优化版文件；这不改变 NSP 本体。该方式依赖用户的 LayeredFS 配置，未新增实机验证。实现依据见 [Atmosphere 变更记录](https://github.com/Atmosphere-NX/Atmosphere/blob/master/docs/changelog.md)。
-
-也可安装 `交付/biko3-01094F68D7330800-update.nsp`，直接启用汉化与去码，无需另放外挂文件。它是关联上述本体的 BKTR Patch 更新（内容版本 196610），显示版本 `1.0.79cn`，大小 49,004,256 字节，SHA256 `5efb68d81a422a60ded27ba465b29eec63b53c560483e87817c5d7f4b4821e36`。安装顺序为本体、更新包。游戏存档属于本体 ID，旧 `01094F68D7333000` 的 HOS 存档不会自动迁入；安装核对与格式说明见[更新包记录](reports/nsp-update-1.0.79.md)。
-
-重新打包使用已有 devkitPro 工具、hacBrewPack 和用户本地密钥，不下载或分发密钥：
-
-```sh
-local/venv/bin/python tools/package_nsp.py local/game/MAINDIR \
-  --output '交付/biko3-01094F68D7330000.nsp'
-```
-
-输出已存在时不覆盖，可换新输出路径。打包脚本生成同名 JSON 清单；实际成品核对见[NSP 记录](reports/nsp-1.0.78.md)。
-
-更新包另使用本地 [hacPack](https://github.com/DarkMatterCore/hacPack)（本次构建提交 `e506cb58b7843d86df7518156debd28f3b575638`），默认可执行路径 `local/hacpack/hacpack`，可用 `--hacpack` 指定。先应用本仓库的小型 BKTR 适配补丁并编译；完整资源包只作本地中间输入，最终交付 BKTR 包：
-
-```sh
-git -C local/hacpack apply ../../tools/hacpack-bktr.patch
-make -C local/hacpack -j8
-local/venv/bin/python tools/package_nsp.py local/game/MAINDIR \
-  --update-patch local/patch-speed/patch.pp --output local/full-update.nsp
-local/venv/bin/python tools/package_bktr_update.py \
-  '交付/biko3-01094F68D7330000.nsp' local/full-update.nsp \
-  --display-version 1.0.79cn --content-version 196610 \
-  --workdir local/bktr-build --output '交付/biko3-01094F68D7330800-update.nsp'
-```
-
-## SD 卡预览
-
-```sh
-python3 tools/package_sd.py local/game/MAINDIR
-```
-
-以**完整内存的应用模式**打开新构建的 `switch/biko3/biko3-runtime.nro`。默认进入原版标题，Switch 版不再创建、写入或轮换 `.log` 文件；发生错误时仍在屏幕显示原因，可按 B 返回。照片和临时暂停截图写入 `sdmc:/switch/biko3` 下的独立输出目录。
-
-| 操作 | 当前作用 |
-| --- | --- |
-| 标题十字键 / A | 选择并确认；新游戏进入原版五人选择 |
-| 左摇杆 / 十字键 | 游戏移动；菜单中十字键选择 |
-| 右摇杆 | 游戏视角 |
-| 结局／特殊剧情 L + 右摇杆 | 按摇杆方向旋转镜头并显示对应提示图标，手动速度为最初的 6 倍 |
-| 结局／特殊剧情 R + 右摇杆 | 右推拉近、左推拉远，上推升高、下推降低，并显示对应提示图标；手动速度为最初的 6 倍 |
-| A | 对白推进 / 交互 / 菜单确认 |
-| B | 游戏姿态切换；子菜单返回，SYSTEM 主界面返回游戏，确认框取消 |
-| X / Y | 游戏镜头切换 / 拍照 |
-| ZL | 慢走 |
-| `+` | 游戏中打开暂停菜单；选人页确认当前角色；音量页恢复默认 MAX |
-| `−` | 开关原版 FPS 显示，默认关闭，长按不重复切换 |
-
-剧情文字界面按住 R 连续强制快进，松开即停止自动翻页；A 仍为单次推进。结局及特殊场景的 R＋右摇杆继续调整镜头。
-
-主菜单、选人、存读档及游戏内 SYSTEM 界面的鼠标保持显示；左摇杆自由移动，ZL减速，十字键逐项选择，A确认。选人、存读档、鉴赏和相册目录可按 B 返回；照片或确认框中先关闭或取消当前层。音量页 B 保存并返回上一级，+ 恢复三项 MAX。SYSTEM 主界面按 B 恢复游戏，返回标题或退出的确认框按 B 取消。见[菜单快捷键验证](reports/menu-shortcuts.md)。
-
-左侧黑边居中显示金色按键说明，仅保留操作内容，不显示标题或镜头倍率；默认日文，加载汉化外挂时自动切换中文。结局和特殊剧情另显示触屏提示：触屏定位光标，配合 A 确认；结局需要拖动操作目标时按住 A 滑动。音量页支持触屏直接点击和拖动。提示绘制在游戏截图之后，不写入相册照片，也不覆盖中间的4:3画面。
-
-背景音乐、语音和音效均恢复原始播放基准，已撤销总输出和 BGM 的额外增益。新配置与音量页“恢复默认”均为三项 MAX（0 dB）；保留已保存的手动设置，不再导入原 PC 数据中的音量配置。见[音量默认值验证](reports/audio-defaults.md)。
-
-默认打包当前游戏和诊断入口所需的 21 个 PP（`bk3_00` 至 `bk3_20`，除 `bk3_17`，另含 `fambom`），包含结局、特殊场景、选人、相册和天气资源；同时复制配套 TBL，以及 CKP/ATR/FAM/FTT 散文件。`--full-data` 可复制全部 22 个归档。所有复制文件校验 SHA-256，不打包 EXE、原存档或补丁。素材仅用于本地自有副本，不属于源码许可范围。历史 SD 包不会自动更新；新包须用 `--output` 指定独立目录。
-
-需要把原版 `Data/` 下的完整游戏数据交付时，使用 `--complete-data`；它会复制全部 168 个数据文件（包括 PP、TBL、关卡、角色、字体、配置和媒体数据），仍不打包 EXE、原存档或补丁：
-
-```sh
-python3 tools/package_sd.py local/game/MAINDIR \
-  --complete-data --output '交付/完整游戏数据-20260928'
-```
-
-## 开发验证
-
-```sh
-python3 -m venv local/venv
-local/venv/bin/pip install -r tests/requirements.txt
-./test-host.sh local/game/MAINDIR
-local/venv/bin/python tests/original_tbl_oracle.py \
-  '尾行3 [汉化]/去码汉化补丁/汉化/尾行3中文版.exe' local/game/MAINDIR/Data
-python3 tools/inspect_objm.py local/game/MAINDIR/Data
-python3 tests/audit_models.py local/game/MAINDIR/Data
-build/model-probe local/game/MAINDIR/Data/bk3_03.pp m01_04.x
-build/material-probe local/game/MAINDIR/Data/bk3_03.pp m01_04.x
-build/material-render-probe local/game/MAINDIR/Data/bk3_03.pp m01_04.x
-build/scene-probe local/game/MAINDIR build/scene-readback
-local/venv/bin/python tests/original_static_oracle.py \
-  '尾行3 [汉化]/去码汉化补丁/汉化/尾行3中文版.exe' local/game/MAINDIR/Data
-build/lighting-render-probe
-local/venv/bin/python tests/original_lighting_oracle.py \
-  '尾行3 [汉化]/去码汉化补丁/汉化/尾行3中文版.exe' local/game/MAINDIR/Data
-python3 tools/inspect_cameras.py local/game/MAINDIR/Data/bk3_04.pp
-build/camera-render-probe
-local/venv/bin/python tests/original_camera_oracle.py \
-  '尾行3 [汉化]/去码汉化补丁/汉化/尾行3中文版.exe' local/game/MAINDIR/Data
-```
-
-原版分析与阶段证据见 [移植记录](reports/porting.md)，当前功能及验证范围以 [收尾清单](docs/roadmap.md) 为准。任务流程、音视频和存档已接入；汉化与去码可通过上述可选外挂启用。
+- [汉化、去码与字体编码](docs/patches.md)：启用补丁或从自有资源生成外挂。
+- [架构与所有权](docs/architecture.md)：模块边界、共享状态和渲染生命周期。
+- [构建与打包](docs/build.md)、[测试与探针](docs/testing.md)：开发环境和验证入口。
+- [第三方许可](THIRD_PARTY.md)：依赖及素材分发边界。
+- [llms.txt](llms.txt)：供代理按需查阅的文档入口。

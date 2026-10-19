@@ -38,7 +38,6 @@ def bindings(lib):
         ('create', [C.c_void_p, C.c_char_p, C.POINTER(Config), C.POINTER(Actor), C.c_void_p, C.c_void_p], C.c_void_p),
         ('append', [C.c_void_p, C.c_void_p, C.c_char_p, C.POINTER(Config), C.c_void_p, C.c_void_p], C.c_int),
         ('destroy', [C.c_void_p], None), ('count', [C.c_void_p], C.c_uint32),
-        ('mode', [C.c_void_p], C.c_uint32),
         ('binding', [C.c_void_p, C.c_uint32], C.POINTER(DualBinding)),
         ('mesh', [C.c_void_p, C.c_uint32], C.POINTER(Mesh)),
         ('mapping', [C.c_void_p, C.c_uint32, C.POINTER(C.c_int32), C.POINTER(C.POINTER(C.c_uint32)), C.POINTER(C.c_size_t)], C.c_int),

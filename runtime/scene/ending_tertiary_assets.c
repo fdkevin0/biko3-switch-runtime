@@ -342,10 +342,6 @@ uint32_t bk_ending_tertiary_assets_root(const BkEndingTertiaryAssets *a, unsigne
   const TertiaryActor *p = effect_actor(a, role);
   return p ? bk_actor_forest_node(a->forest, a->registry[role], p->root) : BK_FRAME_NONE;
 }
-const char *bk_ending_tertiary_assets_model_name(const BkEndingTertiaryAssets *a, unsigned role) {
-  const TertiaryActor *p = effect_actor(a, role);
-  return p ? bk_clip_model_name(p->clips) : NULL;
-}
 int bk_ending_tertiary_assets_advance(BkEndingTertiaryAssets *a, unsigned role,
                                     float seconds, char error[256]) {
   const TertiaryActor *p = effect_actor(a, role);

@@ -28,7 +28,6 @@ const BkImage *bk_special_render_movie_image(const BkSpecialRender *);
 int bk_special_render_prepare(BkSpecialRender *, const BkMenuCamera *,
                                const BkFog *, char error[256]);
 int bk_special_render_draw(BkSpecialRender *, char error[256]);
-int bk_special_render_stats(const BkSpecialRender *, BkActorRenderStats *);
 /* Borrowed inspection/mesh-transfer access, same lifetime as this owner. */
 BkActorRender *bk_special_render_actor(BkSpecialRender *);
 uint32_t bk_special_render_submissions(const BkSpecialRender *);

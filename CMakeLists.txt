@@ -96,6 +96,8 @@ elseif(BK_NATIVE_WINDOW)
     find_library(BK_COCOA_FRAMEWORK Cocoa REQUIRED)
     add_library(bk_platform STATIC runtime/platform/darwin.c
                 runtime/platform/darwin_menu.m runtime/platform/audio_sdl.c)
+    # Cocoa headers need Darwin types hidden by _POSIX_C_SOURCE.
+    target_compile_definitions(bk_platform PRIVATE _DARWIN_C_SOURCE)
     set_source_files_properties(runtime/platform/darwin_menu.m
                                 PROPERTIES COMPILE_FLAGS "-fobjc-arc")
     target_link_libraries(bk_platform PUBLIC "${BK_COCOA_FRAMEWORK}")

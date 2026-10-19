@@ -30,6 +30,8 @@ class Architecture(unittest.TestCase):
             for included in re.findall(r'^#include "([^"]+)"', path.read_text(), re.M):
                 if included in ('shaders.h', 'build_info.h'):
                     continue
+                if module == 'platform' and included == 'render/window_surface.h':
+                    continue
                 dependency = included.split('/')[0]
                 self.assertIn(dependency, ALLOWED[module], f'{path}: {included}')
                 if included.endswith('_internal.h'):
@@ -40,11 +42,18 @@ class Architecture(unittest.TestCase):
             if path.suffix not in ('.c', '.h'):
                 continue
             relative = path.relative_to(ROOT/'runtime').as_posix()
-            text = path.read_text()
+            text = re.sub(r'/\*.*?\*/|//[^\n]*|"(?:\\.|[^"\\])*"',
+                          lambda m: m[0] if m[0].startswith('"') else '',
+                          path.read_text(), flags=re.S)
             if '#include <switch.h>' in text or '__SWITCH__' in text:
                 self.assertTrue(relative in ('platform/switch.c', 'platform/audio_switch.c') or
                                 relative.startswith('render/vulkan/'), relative)
-            if re.search(r'#include <vulkan/|\bVk[A-Z]\w+', text):
+            if '#include <vulkan/' in text:
+                self.assertTrue(relative.startswith('render/vulkan/'), relative)
+            vulkan_types = set(re.findall(r'\bVk[A-Z]\w+', text))
+            if relative in ('platform/darwin.c', 'platform/linux.c'):
+                self.assertLessEqual(vulkan_types, {'VkInstance', 'VkSurfaceKHR'}, relative)
+            elif vulkan_types:
                 self.assertTrue(relative.startswith('render/vulkan/'), relative)
 
 

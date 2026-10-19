@@ -67,5 +67,4 @@ int bk_dialogue_session_draw(BkDialogueSession *, char error[256]);
 int bk_dialogue_session_after_present(BkDialogueSession *, char error[256]);
 int bk_dialogue_session_stop(BkDialogueSession *, char error[256]);
 int bk_dialogue_session_released(const BkDialogueSession *);
-BkDialogueWorld *bk_dialogue_session_world(BkDialogueSession *);
 #endif

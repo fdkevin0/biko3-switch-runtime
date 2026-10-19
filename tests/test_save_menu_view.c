@@ -97,26 +97,43 @@ int main(void) {
       assert(!control.skip_draw && !frame.count &&
              frame.text_after == UINT32_MAX && calls.motions == motions);
     }
-  BkSaveMenuLabel labels[10] = {0};
-  uint8_t out[512], before[512];
-  size_t size = 0;
-  assert(bk_save_menu_labels(labels, out, &size, e) && size == 440 &&
-         !out[size]);
-  for (unsigned i = 0; i < 10; ++i) {
-    labels[i].area = i % 9;
-    strcpy(labels[i].stamp, "2026/09/28-12:34:56");
+  const char *expected[] = {
+      /* ０１－エリア１－２６／０９／２８－１２：３４ (Shift-JIS) */
+      "\x82\x4f\x82\x50\x81\x7c\x83\x47\x83\x8a\x83\x41\x82\x50\x81\x7c"
+      "\x82\x51\x82\x55\x81\x5e\x82\x4f\x82\x58\x81\x5e\x82\x51\x82\x57"
+      "\x81\x7c\x82\x50\x82\x51\x81\x46\x82\x52\x82\x53",
+      /* ０１－场景号１－２６／０９／２８－１２：３４ (GBK) */
+      "\xa3\xb0\xa3\xb1\xa3\xad\xb3\xa1\xbe\xb0\xba\xc5\xa3\xb1\xa3\xad"
+      "\xa3\xb2\xa3\xb6\xa3\xaf\xa3\xb0\xa3\xb9\xa3\xaf\xa3\xb2\xa3\xb8"
+      "\xa3\xad\xa3\xb1\xa3\xb2\xa3\xba\xa3\xb3\xa3\xb4"};
+  for (int chinese = 0; chinese <= 1; ++chinese) {
+    BkSaveMenuLabel labels[10] = {0};
+    uint8_t out[512], before[512];
+    size_t size = 0;
+    assert(bk_save_menu_labels(labels, chinese, out, &size, e) &&
+           size == 440 && !out[size]);
+    assert(!memcmp(out, expected[chinese], 6));
+    for (unsigned k = 6; k < 44; k += 2)
+      assert(!memcmp(out + k, expected[chinese] + 4, 2));
+    for (unsigned i = 0; i < 10; ++i) {
+      labels[i].area = i % 9;
+      strcpy(labels[i].stamp, "2026/09/28-12:34:56");
+    }
+    assert(bk_save_menu_labels(labels, chinese, out, &size, e) &&
+           size == 440 && !out[size]);
+    assert(!memcmp(out, expected[chinese], 44));
+    assert(!memcmp(out + 9 * 44, expected[chinese] + 2, 2) &&
+           !memcmp(out + 9 * 44 + 2, expected[chinese], 2));
+    memcpy(before, out, sizeof(out));
+    labels[0].area = UINT32_MAX;
+    assert(!bk_save_menu_labels(labels, chinese, out, &size, e) &&
+           size == 440 && !memcmp(before, out, sizeof(out)));
+    labels[0].stamp[0] = 0;
+    assert(bk_save_menu_labels(labels, chinese, out, &size, e));
   }
-  assert(bk_save_menu_labels(labels, out, &size, e) && size == 440 &&
-         !out[size]);
-  memcpy(before, out, sizeof(out));
-  labels[0].area = UINT32_MAX;
-  assert(!bk_save_menu_labels(labels, out, &size, e) && size == 440 &&
-         !memcmp(before, out, sizeof(out)));
-  labels[0].stamp[0] = 0;
-  assert(bk_save_menu_labels(labels, out, &size, e));
   assert(!bk_save_menu_image(58, 0, 0) && !bk_save_menu_image(0, 5, 0));
   printf("PASS save-menu-view %u snapshots; invalid indices/time/callback and "
-         "released skip; label bounds/atomicity\n",
+         "released skip; Japanese/Chinese labels, bounds/atomicity\n",
          frames);
   return 0;
 }

@@ -30,7 +30,6 @@ int bk_bom_dual_assets_append(BkBomDualAssets *, BkResourceStore *,
                               BkActorForest *, char error[256]);
 void bk_bom_dual_assets_destroy(BkBomDualAssets *);
 uint32_t bk_bom_dual_assets_count(const BkBomDualAssets *);
-uint32_t bk_bom_dual_assets_mode(const BkBomDualAssets *);
 const BkBomDualBinding *bk_bom_dual_assets_binding(const BkBomDualAssets *, uint32_t);
 uint32_t bk_bom_dual_assets_mesh_count(const BkBomDualAssets *);
 const BkBomAssetMesh *bk_bom_dual_assets_mesh(const BkBomDualAssets *, uint32_t);

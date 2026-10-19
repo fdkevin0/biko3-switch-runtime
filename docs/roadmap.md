@@ -1,35 +1,43 @@
-# 当前路线与收尾状态
+# 当前状态与验证范围
 
-更新：2026-10-02。当前使用指定 Mesa NVK，保留日文基础数据并支持汉化与去码外挂。主要游戏功能已经接入生产应用，本次工程收尾交付 NRO、原版直装 NSP 与汉化去码更新 NSP；后续实机由用户自行验证，按反馈维护。
+更新：2026-10-19。主要游戏功能已接入，当前按实际反馈维护。源码版本取自[依赖锁](../config/dependencies.lock.json)；源码、某次二进制和已交付包是不同对象，不能凭同一显示版本合并测试结论。
 
-| 阶段 | 当前实现 | 主要证据与范围 |
+## 功能接入
+
+| 领域 | 当前能力 | 主要证据 |
 | --- | --- | --- |
-| M0 工程与平台 | 模块边界、主循环、libnx输入/音频、资源服务、NRO与原生NSO/NSP构建已接通；Mesa锁定 `5dba7886…` | [架构](architecture.md)、[NVK依赖锁](../config/dependencies.lock.json)、[直装包检查](../reports/nsp-1.0.78.md) |
-| M1 静态画面与镜头 | 实际背景、灯光/雾、投影、4:3视口、深度及透明层已接入 | [光影修复](../reports/lighting-surface-layers.md)；用户确认表面明暗闪烁已修复。跨视口原点的微小主机差异见[单独诊断](../reports/ending-raster-origin.md)，不是缺失场景 |
-| M2 动态角色 | ANIM/XAN、ENVL、MORP、头/眼节点、材质动画和CPU/GPU姿态发布已接入 | [演员姿态](../reports/actor-pose.md)、[GPU蒙皮](../reports/gpu-skin-performance.md)、[实际NEON对照](../reports/neon-skinning.md) |
-| M3 世界交互 | 玩家/NPC移动、追踪、镜头、地面/墙面/道具碰撞和天气已接入 | [实际游戏入口](../reports/play-session.md)、[藏身退出修复](../reports/hiding-exit.md)、[NPC视线优化](../reports/npc-occlusion-performance.md)；雨天及撞车曾获用户实机确认 |
-| M4 游戏与菜单 | 标题、选人、剧情、游戏、失败/重试、暂停、结局/回放、特殊场景、鉴赏、音量及相册均有生产入口 | [原标题入口](../reports/original-front-end.md)、[结局回放](../reports/ending-gallery-session.md)、[特殊场景](../reports/special-session.md)、[相册](../reports/album-application.md)、[菜单操作](../reports/menu-shortcuts.md) |
-| M5 音视频与时序 | BGM/语音/音效、独立音频补给、AVI纹理与游戏/媒体时钟已接入 | [原版速率](../reports/game-clock-fps.md)、[音频默认值](../reports/audio-defaults.md)、[特殊场景媒体](../reports/special-media.md)；主机输出不能当作最新Switch声音结果 |
-| M6 持久化 | 存读档、下一剧情交接、结局动作记录、解锁、照片和音量配置已接入；NSP按所选用户写HOS存档并显式提交 | [保存后续剧情修复](../reports/checkpoint-next-story.md)、[动作记录存储](../reports/record-storage.md)、[HOS存储与检查范围](../reports/nsp-1.0.78.md) |
-| M7 收尾 | NRO/原版NSP/更新NSP与优化外挂交付；主机、ASan及NVK构建通过，实际NSP内容已提取校验 | [外挂优化](../reports/patch-loading.md)、[NSP成品检查](../reports/nsp-1.0.78-verification.json)。用户接手后续实机验证，不把主机检查当作实机结果 |
+| 前端与任务 | 标题、五人选择、剧情、跟踪、区域交接、失败/重试和暂停 | [前端](../reports/original-front-end.md)、[应用入口](../reports/play-session.md)、[交接修复](../reports/checkpoint-next-story.md) |
+| 动态世界 | 演员姿态、ENVL/MORP、表情、移动、碰撞、跟随镜头和天气 | [演员姿态](../reports/actor-pose.md)、[GPU 蒙皮](../reports/gpu-skin-performance.md)、[雨雪接入](../reports/weather-integration.md) |
+| 结局与回放 | 普通/选择/第三类场景、动作记录、回放、特殊场景和鉴赏入口 | [自然输入记录](../reports/ending-natural-record.md)、[鉴赏回放](../reports/ending-gallery-session.md)、[特殊场景](../reports/special-session.md) |
+| 菜单与输出 | 存读档、音量、相册、拍照与菜单快捷键 | [存读档](../reports/save-session.md)、[音量](../reports/volume-application.md)、[相册](../reports/album-application.md)、[菜单](../reports/menu-shortcuts.md) |
+| 音视频与时序 | 语音/BGM/音效、设备供给、AVI 纹理与独立时钟 | [原版速率](../reports/game-clock-fps.md)、[音量默认值](../reports/audio-defaults.md)、[媒体](../reports/special-media.md) |
+| 持久化 | 检查点、动作记录、解锁、照片和音量；NSP 按用户写 HOS 存档 | [记录存储](../reports/record-storage.md)、[解锁](../reports/unlock-storage.md)、[HOS 接入](../reports/nsp-1.0.78.md) |
+| 汉化与去码 | BKPT2 外挂、中文资源与字库、中文文字适配，可选去码 | [合并补丁](../reports/combined-patch.md)、[绿色版外挂](../reports/chinese-patch.md)、[中文文字](../reports/chinese-dialogue.md) |
 
-## 当前构建
+接入表示有生产应用路径，不表示全剧情或全部资源组合已遍历。具体入口、夹具和帧数以对应报告为准。
 
-`build-switch/biko3-runtime.nro`，版本字段1.0.78，16,408,236字节；SHA256 `11afda078af0f9d0479b83057d1469e708ada317ea790326552fba1327ac9fb9`，ELF未解析符号0。名称/作者为 `biko3-runtime` / `ILLUSION`，图标来自本地 `icon.jpg`。
+## 平台状态
 
-`交付/biko3-01094F68D7330000.nsp`，名称「尾行3」、TitleID `01094F68D7330000`，2,957,146,840字节，SHA256 `85b4cf4706fd43284ab35dff0e78986334a6eb9b7ebecbbfcbf8b5978f428df6`。内含原版日文Data，不含外挂；NRO与NSP成品字段见[打包核对](../reports/nsp-1.0.78-verification.json)。
+| 平台 | 已记录的结果 | 仍未覆盖的范围 |
+| --- | --- | --- |
+| macOS | `build-macos.sh` 已在本机完整编译链接；MoltenVK 存读档界面中日各 1,434 帧、100 保存/50 读取及截图检查通过 | 本轮没有完整自然剧情和全部菜单点击审核；按当前系统维护，不做旧系统兼容验收 |
+| Linux | 已在 Armada OS / Adreno / Turnip 的掌机上记录标题、选人、手柄与全屏运行，另有离屏资源和应用检查 | 不是本轮源码在全部 Linux 环境的验证，设备条件见 [Linux 说明](linux-native.md) |
+| Switch | 2026-10-02 正式 NRO / 本体 / BKTR 更新已交付；指定 NVK 构建和专项主机回归完成 | 用户负责后续安装、性能和稳定性验证；最新更新只做生成检查，不能继承此前包的独立检测 |
 
-包含可选汉化/去码外挂、关闭 Switch 日志生成，以及[渲染绑定缓存](../reports/vulkan-bindings.md)、[藏身退出修复](../reports/hiding-exit.md)和[NPC无效遮挡检查优化](../reports/npc-occlusion-performance.md)。本次外挂改为37,165,253字节的逐资源压缩格式，完整替换跳过原载荷；计数下降只代表相应路径工作量减少，不能当作实机FPS或加载耗时收益。
+## 最近维护
 
-`交付/biko3-01094F68D7330800-update.nsp` 是关联新本体的 BKTR 差分 Patch 更新，49,003,232 字节，复用全部168原版Data文件，包含程序及合并汉化/去码补丁。内容版本131072，显示版本1.0.78cn；Program和存档owner仍为本体ID。见[更新包核对](../reports/nsp-update-1.0.78-verification.json)。
+2026-10-19 的源码已修复两项 macOS 使用中暴露的问题：Cocoa 菜单编译时补齐 Darwin 类型可见性；汉化存档槽标签按当前语言输出 GBK，日期、时间与区域显示恢复。后者有普通及 ASan/UBSan 单测、中日实际界面和截图证据，见[存读档报告](../reports/save-session.md#2026-10-19汉化存档槽文字乱码)。这些源码改动没有自动重建或覆盖此前 Switch 交付包。
 
-最新追加[中文流程文字修复](../reports/chinese-dialogue.md)：实际字形高度取代字节估算，消除短对白多消耗一次 A 的情况；中文对白、世界开场/失败/道具提示放大30%、按完整行裁切，日文、菜单及按键说明不变。共用文字纹理改为复用。121段文本242裁切、中文UI及中日文字/流程提示普通与ASan配对通过，未扩大剧情审核。
+2026-10-02 的结局侧栏修复及人物动作适配仍保留，见[侧栏记录](../reports/ending-sidebar.md)。用户此前已确认雨天、存档/撞车和物体表面光影闪烁的相应修复；跨视口原点微小光栅差异继续保留为[单独诊断](../reports/ending-raster-origin.md)，没有改写为全面视觉通过。
 
-## 接下来的边界
+## 已交付包的记录
 
-1. 用户已试玩并明确停止逐段剧情审核；其他藏身点由用户自行检查。不再自动扩展自然路线矩阵，也不将未跑完整路线写成通过。
-2. 后续优先处理实际反馈或日志能定位的问题；已有检查通过后，仅因新改动、失败或未解决疑点补必要验证。
-3. 用户明确“余后我自己验证”，最新NSP安装、HOS照片持久性、NVK性能与持续运行由用户接手。本机MoltenVK不能替代实机，不再把这些缺少的新结果作为交付阻塞。
-4. 此前一次 GitHub 推送已完成；本批仅本地提交，不追加推送。按本次请求制作原版NSP与补丁更新NSP，既有NRO外挂目录只做增量更新，不生成ZIP或另一个完整SD包。工程交付结束后恢复Mac正常休眠。
+- [原版 NSP 与存储](../reports/nsp-1.0.78.md)：本体 ID `01094F68D7330000`。
+- [正式 1.0.79cn 更新](../reports/nsp-update-1.0.79.md)：更新 ID `01094F68D7330800`，最新记录内容版本 196610；具体摘要和检测范围在该报告维护。
+- [补丁生成与样本](../reports/chinese-patch.md)：绿色版生成的纯中文、中文去码样本与早期 Switch 合并补丁分别记录。
 
-历史实现细节、原指令地址和当时未完成项保留在 `reports/` 与Git历史中；阅读旧报告时以其日期和本页当前状态为准。工程实现与本次交付完成，不将未跑的全剧情/实机范围写成通过。
+安装方式见 [Switch 说明](switch.md)，重建方式见[构建与打包](build.md)。历史交付目录与 ZIP 不随源码自动刷新。
+
+## 维护范围
+
+后续围绕用户反馈、明确功能和可定位的性能问题推进。完整剧情路线、其他藏身点审核和最新 Switch 实机结果不作为自动扩展任务；需要这些工作时由用户指定范围。既有检查仅因本次改动、失败或未解决疑点扩展。

@@ -50,8 +50,6 @@ BkActorForest *bk_ending_normal_assets_forest(BkEndingNormalAssets *);
 /* actor0=primary,1=auxiliary,2/3=tracks,4=background (NULL until loaded). */
 BkActorPose *bk_ending_normal_assets_pose(BkEndingNormalAssets *,
                                           unsigned actor);
-const char *bk_ending_normal_assets_model_name(const BkEndingNormalAssets *,
-                                               unsigned actor);
 BkBomAssets *bk_ending_normal_assets_bom(BkEndingNormalAssets *);
 BkFaceAssets *bk_ending_normal_assets_face(BkEndingNormalAssets *);
 BkFaceState *bk_ending_normal_assets_face_state(BkEndingNormalAssets *);

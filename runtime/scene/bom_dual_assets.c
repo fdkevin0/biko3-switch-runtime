@@ -328,9 +328,6 @@ int bk_bom_dual_assets_advance_plain(BkBomDualAssets *a, unsigned actor,
 uint32_t bk_bom_dual_assets_count(const BkBomDualAssets *a) {
   return a && !a->failed ? a->config.count : 0;
 }
-uint32_t bk_bom_dual_assets_mode(const BkBomDualAssets *a) {
-  return a && !a->failed ? a->config.mode : 0;
-}
 const BkBomDualBinding *bk_bom_dual_assets_binding(const BkBomDualAssets *a, uint32_t i) {
   return a && !a->failed && i < a->config.count ? &a->bindings[i] : NULL;
 }

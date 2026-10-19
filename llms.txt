@@ -1,0 +1,36 @@
+# Biko3 原生运行时
+
+> 《尾行3》的 Switch / macOS / Linux C11 原生移植工程。按任务查阅以下资料；历史记录不是当前操作指令。
+
+## 入口
+
+- [项目介绍](README.md): 快速开始与平台入口。
+- [文档索引](docs/README.md): 当前专题与历史资料的完整导航。
+- [代理约束](AGENTS.md): 素材边界、操作授权及按任务路由。
+- [开发指南](CONTRIBUTING.md): 开发验证及文档归属。
+- [当前状态](docs/roadmap.md): 功能接入、平台验证和范围限制。
+
+## 使用
+
+- [macOS](docs/macos-native.md): SDL3 / MoltenVK、窗口、设置、菜单与 app 打包。
+- [Linux](docs/linux-native.md): Vulkan、手柄、启动器与 Steam。
+- [Switch](docs/switch.md): NRO / NSP 安装、目录与 HOS 存档。
+- [操作说明](docs/controls.md): 跨平台按键、菜单和镜头。
+- [补丁与编码](docs/patches.md): BKPT2、汉化、去码和 FTT 字库。
+- [常见问题](docs/faq.md): 启动、输入、文字和存档排障。
+
+## 开发
+
+- [构建与打包](docs/build.md): 主机、Switch SDK、SD / NSP 工具入口。
+- [架构](docs/architecture.md): 模块边界、状态所有权、帧和 GPU 生命周期。
+- [测试与验证](docs/testing.md): 相关检查、原版对照、GPU 探针与证据标准。
+- [game](runtime/game/README.md): 流程、控制和服务请求。
+- [world](runtime/world/README.md): 姿态发布、路线、相机和碰撞。
+- [model](runtime/model/README.md): 解析、播放、蒙皮与变形。
+- [media](runtime/media/README.md): PCM、音频游标与 AVI。
+- [save](runtime/save/README.md): 持久化格式、替换和提交。
+- [第三方许可](THIRD_PARTY.md): 依赖许可和分发边界。
+
+## 按需追溯
+
+- [报告索引](reports/README.md): 按主题列出的全部实验与修复报告。

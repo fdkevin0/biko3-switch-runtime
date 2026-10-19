@@ -825,10 +825,6 @@ void bk_game_preview_block(BkScene *scene, uint8_t blocked) {
   if (g)
     g->blocked = blocked;
 }
-uint32_t bk_game_preview_now(BkScene *scene) {
-  GamePreview *g = bk_scene_custom_context(scene);
-  return g ? g->now_ms : 0;
-}
 
 void bk_game_preview_clock(BkScene *scene, double elapsed) {
   GamePreview *g = bk_scene_custom_context(scene);

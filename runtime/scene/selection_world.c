@@ -39,9 +39,6 @@ BkSceneLighting *bk_selection_world_lighting(BkSelectionWorld *s) {
 uint32_t bk_selection_world_root(const BkSelectionWorld *s, unsigned i) {
   return s && i < BK_SELECTION_OBJECTS ? s->roots[i] : BK_FRAME_NONE;
 }
-uint32_t bk_selection_world_focus(const BkSelectionWorld *s) {
-  return s ? s->focus : BK_FRAME_NONE;
-}
 void bk_selection_world_destroy(BkSelectionWorld *s) {
   if (!s)
     return;

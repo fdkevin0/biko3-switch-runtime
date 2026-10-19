@@ -257,7 +257,6 @@ int bk_special_session_after_present(BkSpecialSession *s, char e[256]) {
   }
   return 1;
 }
-BkSpecialWorld *bk_special_session_world(BkSpecialSession *s) { return s ? s->world : NULL; }
 const BkVirtualPointer *bk_special_session_pointer(const BkSpecialSession *s) {
   return s ? &s->pointer : NULL;
 }

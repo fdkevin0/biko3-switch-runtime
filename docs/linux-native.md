@@ -1,111 +1,63 @@
-# Linux 原生运行（aarch64 / Wayland / Vulkan）
+# Linux 原生运行
 
-本分支在原 Switch NRO 工程上增加了桌面平台后端，让同一套运行时直接读取
-SD 卡目录里的 `Data` 与 `patch.pp`，在 Linux 上以 Vulkan 窗口运行。
+SDL3 + Vulkan 桌面后端直接读取 `Data/` 和可选 `patch.pp`，不经过 Proton。已记录 KONKR Pocket FIT Elite / Snapdragon 8 Elite / Adreno 830，Armada OS、Mesa Turnip 26.2.3、KDE Wayland 下的标题、选人、手柄和全屏运行；这描述该设备与当时构建，不代表所有 Linux 环境。
 
-已在 KONKR Pocket FIT Elite（Snapdragon 8 Elite / Adreno 830，Armada OS，
-Mesa Turnip 26.2.3，KDE Wayland，1920×1080@144Hz）实机跑通：标题、选人、
-手柄按键与全屏显示均正常。
+## 构建与运行
 
-## 构建
-
-依赖：CMake ≥ 3.24、GCC/Clang、Vulkan 头文件与 loader、glslangValidator、
-SDL3 开发包、zlib。
+需要 CMake 3.24+、GCC/Clang、SDL3 开发包、Vulkan 头文件/loader、zlib 和 `glslangValidator`：
 
 ```sh
-cmake -S . -B build-native \
-  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-  -DBK_NATIVE_WINDOW=ON \
-  -DBK_BUILD_TESTS=OFF \
-  -DMESA_SWITCH_SDK=/usr
-cmake --build build-native --parallel 8 --target biko3-preview
+./build-linux.sh
+./build-native/biko3 /path/to/MAINDIR
 ```
 
-产物为 `build-native/biko3`（`biko3-preview` 目标在桌面构建下改名为
-`biko3`）。`MESA_SWITCH_SDK` 仅用于复用现有的 Vulkan 头文件路径检查；
-桌面构建链接系统 `libvulkan`，不会使用 devkitPro 的 NVK 静态库。
+桌面目标名为 `biko3-preview`，输出 `build-native/biko3`。脚本默认从 `/usr` 找头文件，链接系统 Vulkan；自定义前缀见[构建说明](build.md#linux)。不可变发行版可在匹配宿主依赖的容器中编译，再在宿主运行。
 
-如果系统没有 `-devel` 包（例如不可变发行版），可以在 Fedora 容器里构建，
-再把二进制拿到宿主机运行；二进制只依赖宿主机的 `libSDL3.so.0`、
-`libvulkan.so.1`、`libz.so.1` 与 glibc。
-
-## 运行
+默认全屏采用当前桌面模式。窗口启动：
 
 ```sh
-~/.local/bin/biko3
+BIKO3_WINDOWED=1 ./build-native/biko3
 ```
 
-或点击桌面上的「尾行3」，或在 Steam 库中启动「尾行3」。启动器会：
+## 数据目录
 
-1. 通过 InputPlumber 的 D-Bus 接口把内置手柄切换成 `xbox-elite`
-   （标准 uinput Xbox 手柄）。默认的 `deck-uhid` 目标在未绑定
-   `hid-steam` 内核驱动时只暴露 `/dev/hidraw`，SDL 无法当作手柄使用。
-2. 以全屏 1920×1080（当前显示器桌面分辨率）启动游戏。
-
-游戏数据默认在 `~/.local/share/biko3/game`（`Data/` 与 `patch.pp`）。
-可用 `BIKO3_GAME=/path/to/game` 或第一个命令行参数覆盖。
-
-存档、照片、音量配置：
-`~/.local/share/biko3/`（`save/`、`captures/`、`album/`）。
-
-调试用环境变量：
+默认游戏根目录为 `~/.local/share/biko3/game`，包含 `Data/` 与可选 `patch.pp`。第一个命令行参数或 `BIKO3_GAME` 可指定其他游戏根目录。存档、照片和音量配置位于 `~/.local/share/biko3/` 下的 `save/`、`captures/`、`album/`。
 
 | 变量 | 作用 |
 | --- | --- |
-| `BIKO3_WINDOWED=1` | 1280×720 窗口模式，便于调试 |
-| `BIKO3_CAPTURE=/tmp/frame.ppm` | 第 120 帧写一张 PPM 截图 |
-| `BIKO3_INPUT_DEBUG=1` | 打印按键边沿 |
-| `BIKO3_GAME=/path` | 指定游戏数据目录 |
+| `BIKO3_GAME` | 游戏根目录 |
+| `BIKO3_WINDOWED=1` | 以 1280×720 窗口启动 |
+| `BIKO3_INPUT_DEBUG=1` | 打印输入按键边沿 |
+| `BIKO3_CAPTURE=/tmp/frame.ppm` | 在指定帧输出调试截图，行为见应用入口 |
 | `BK_SHOW_FPS=1` | 启动时显示原版 FPS |
 
-## 按键
+## 手柄与启动器
 
-| 手柄 | 键盘 | 作用 |
-| --- | --- | --- |
-| A（下） | Enter / Space | 确认、交互、对白推进 |
-| B（右） | Esc / Backspace | 返回、姿态切换 |
-| X（左） | X | 镜头切换 |
-| Y（上） | C | 拍照 |
-| Start | Tab | 暂停菜单 |
-| Select / Back | F1 | 原版 FPS 开关 |
-| 十字键 | 方向键 | 菜单选择（标题/选人自动定位光标） |
-| 左摇杆 | WASD | 移动 / 菜单光标 |
-| 右摇杆 | — | 游戏视角 |
-| LB | Q | 结局/特殊剧情镜头旋转（对应 Switch L） |
-| RB | E | 镜头远近/高度（对应 Switch R） |
-| LT | Shift | 慢走（对应 Switch ZL） |
-| 触屏/鼠标 | — | 定位菜单光标，点击=确认 |
+标准 USB/蓝牙手柄由 SDL3 直接识别，最多 4 个；游戏按键和键盘映射见[操作说明](controls.md)。部分掌机内置 MCU 手柄需要 InputPlumber 将输入暴露为标准 uinput 设备。
 
-## 实现说明
+安装后的 `~/.local/bin/biko3` 启动器尝试通过 D-Bus 切到 `xbox-elite` 目标，避免只暴露 `/dev/hidraw` 的配置无法被 SDL 当作手柄读取。直接运行构建产物不执行这一步。InputPlumber 不是所有 Linux 手柄的必要依赖。
 
-- `runtime/platform/linux.c`：SDL3 窗口、Vulkan surface 工厂、键盘/鼠标/
-  触屏/多手柄输入、时钟、存档目录。
-- `runtime/platform/audio_sdl.c`：SDL3 推流音频（48kHz PCM16 立体声，
-  4×10ms 队列，消费计数来自 SDL 队列）。
-- `runtime/render/window_surface.h`、`bk_renderer_create_window()`：
-  渲染器仍自建 VkInstance/device，平台只提供窗口系统实例扩展与
-  `VkSurfaceKHR`。
-- `runtime/app/application.c`：每张画面推进一次，步长使用原版 `733700`
-  的两帧测量值（约为墙钟 2 倍）。移动与动画由这个步长驱动，所以实际
-  速度是 1 倍；`PERF game/wall≈2.0` 是预期值。不要把步数减半，否则就是
-  文档中记录过的慢动作问题，见 `reports/game-clock-fps.md`。
-- 渲染分辨率跟随 swapchain（当前 1920×1080），游戏内容仍按 4:3 居中，
-  左侧黑边显示金色按键说明。
+## Steam
 
-## 已知限制
+先准备游戏数据，然后执行：
 
-- 手柄支持依赖 InputPlumber 服务；若它没有运行，USB/蓝牙标准手柄仍可被
-  SDL 直接识别，但内置 MCU 手柄不会出现。
-- 全屏分辨率取桌面当前模式，运行中不支持切换分辨率；窗口模式用
-  `BIKO3_WINDOWED=1`。
-- 桌面构建不包含 Switch 的 NRO/NSP 打包步骤。
+```sh
+./install-steam.sh
+```
 
-## Steam 库
+脚本安装或更新运行时、启动器、桌面入口，并写入 Steam 非 Steam 游戏快捷方式及可用封面。缺少 `build-native/biko3` 且没有已安装程序时先构建。它会修改当前用户的安装位置和 Steam 配置，适用于明确要求安装或更新的任务。
 
-已写入当前用户（`1127854643`）的
-`~/.local/share/Steam/userdata/1127854643/config/shortcuts.vdf`，名称为
-「尾行3」，目标为 `/var/home/armada/.local/bin/biko3`，并带 600×900 封面、
-1920×620 横幅和图标。重新启动 Steam 后即可在库中看到。
+默认位置包括：
 
-Steam 关闭时写入，避免客户端退出时覆盖。若以后 Steam 重建了
-`shortcuts.vdf`，重新添加一次非 Steam 游戏并指向同一个启动器即可。
+- 运行时：`~/.local/share/biko3/biko3`
+- 启动器：`~/.local/bin/biko3`
+- 桌面入口：`~/.local/share/applications/biko3.desktop`
+- Steam 配置：`~/.local/share/Steam/userdata/<SteamID>/config/shortcuts.vdf`
+
+`BIKO3_PREFIX`、`BIKO3_GAME`、`BIKO3_STEAM_NAME` 可调整安装根、数据目录和名称。关闭 Steam 后安装，再重启客户端，避免客户端退出时覆盖快捷方式文件。
+
+## 实现与限制
+
+`platform/linux.c` 提供 SDL 窗口、输入和 Vulkan surface 工厂，`platform/audio_sdl.c` 负责设备音频队列。renderer 仍拥有 VkInstance/device，平台只交付窗口扩展和 surface 创建服务。
+
+分辨率使用当前桌面模式，内容仍按 4:3 居中；该后端没有 macOS 的完整运行时设置菜单。游戏时间沿用原版步长，`game/wall≈2` 是测量口径，不能据此减半逻辑步数，见[速率报告](../reports/game-clock-fps.md)。桌面构建不包含 Switch 打包步骤。

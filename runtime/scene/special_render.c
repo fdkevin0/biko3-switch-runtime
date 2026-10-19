@@ -156,6 +156,3 @@ int bk_special_render_draw(BkSpecialRender *r, char e[256]) {
   return r && r->ready ? bk_actor_render_batch_draw(r->batch, r->lights, e)
                         : fail(e, "no prepared frame");
 }
-int bk_special_render_stats(const BkSpecialRender *r, BkActorRenderStats *out) {
-  return r && bk_actor_render_stats(r->actor, out);
-}

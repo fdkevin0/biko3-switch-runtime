@@ -60,11 +60,7 @@ int bk_ending_auxiliary_assets_material_alpha(BkEndingAuxiliaryAssets *,
                                               const char *name,
                                               uint32_t hidden, float alpha,
                                               char error[256]);
-const BkMaterialAnimation *bk_ending_auxiliary_assets_material_animation(
-    const BkEndingAuxiliaryAssets *, unsigned actor);
 const BkMorphGroup *bk_ending_auxiliary_assets_morph(const BkEndingAuxiliaryAssets *, unsigned actor);
-const BkMorphMesh *bk_ending_auxiliary_assets_mesh(const BkEndingAuxiliaryAssets *,
-                                                 unsigned actor, uint32_t submesh);
 uint32_t bk_ending_auxiliary_assets_root(const BkEndingAuxiliaryAssets *, unsigned actor);
 const char *bk_ending_auxiliary_assets_model_name(const BkEndingAuxiliaryAssets *, unsigned actor);
 BkFaceAssets *bk_ending_auxiliary_assets_face(BkEndingAuxiliaryAssets *);

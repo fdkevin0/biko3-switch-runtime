@@ -73,7 +73,7 @@ def bind(lib):
         ('background', [C.c_void_p], C.c_void_p), ('forest', [C.c_void_p], C.c_void_p),
         ('config', [C.c_void_p], C.POINTER(Config)), ('pose', [C.c_void_p, C.c_uint], C.c_void_p),
         ('root', [C.c_void_p, C.c_uint], C.c_uint32), ('registry', [C.c_void_p, C.c_uint], C.c_uint32),
-        ('model_name', [C.c_void_p, C.c_uint], C.c_char_p), ('node', [C.c_void_p, C.c_uint], C.c_uint32),
+        ('node', [C.c_void_p, C.c_uint], C.c_uint32),
         ('visible_node', [C.c_void_p, C.c_uint], C.c_uint32), ('missing_visible', [C.c_void_p], C.c_uint),
         ('follow', [C.c_void_p], C.c_uint32), ('special', [C.c_void_p], C.c_uint32),
         ('target', [C.c_void_p, C.c_uint], vp), ('bom', [C.c_void_p], C.c_void_p),

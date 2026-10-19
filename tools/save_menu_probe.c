@@ -85,8 +85,8 @@ static int persistent_pointer(BkScene *scene, BkRenderer *r, BkAudio *audio,
   return 1;
 }
 int main(int argc, char **argv) {
-  if (argc != 3) {
-    fprintf(stderr, "save-menu-probe DATA OUTPUT.rgba\n");
+  if (argc != 3 && argc != 4) {
+    fprintf(stderr, "save-menu-probe DATA OUTPUT.rgba [PATCH.pp]\n");
     return 2;
   }
   char e[256] = {0}, path[2048], root[] = "/tmp/bk-save-menu-XXXXXX";
@@ -107,12 +107,17 @@ int main(int argc, char **argv) {
   }
   CHECK(bk_resources_mount_directory(resources, "fonts", argv[1],
                                      16 * 1024 * 1024, e));
+  if (argc == 4)
+    CHECK(bk_resources_load_patch(resources, argv[3], e));
   files = bk_checkpoint_files_create(root, e);
   renderer = bk_renderer_create(640, 480, stderr, e);
   BkAudioSink sink = {&submitted, 48000, 240, 960, submit, poll};
   audio = bk_audio_create(&sink, e);
   CHECK(files && renderer && audio);
-  BkSceneServices services = {resources, renderer, stderr, audio, NULL, NULL};
+  BkSceneServices services = {.resources = resources,
+                               .renderer = renderer,
+                               .log = stderr,
+                               .audio = audio};
   BkSavePreviewState state = {.control.tab = 3};
   BkCommonHudState common = {0};
   BkMenuCursor cursor = {0};

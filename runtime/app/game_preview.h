@@ -20,7 +20,6 @@ BkScene *bk_game_preview_create_entry(const BkSceneServices *,
                                       double elapsed, BkScreenshot *capture,
                                       char error[256]);
 void bk_game_preview_block(BkScene *, uint8_t blocked);
-uint32_t bk_game_preview_now(BkScene *);
 void bk_game_preview_clock(BkScene *, double elapsed);
 /*51a77c: music/continuous ambient gain only; timer/RNG/animation hold. */
 int bk_game_preview_background_step(BkScene *, double seconds, double elapsed,

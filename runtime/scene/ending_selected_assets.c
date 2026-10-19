@@ -389,10 +389,6 @@ uint32_t bk_ending_selected_assets_root(const BkEndingSelectedAssets *a, unsigne
   const SelectedActor *p = effect_actor(a, actor);
   return p ? bk_actor_forest_node(a->forest, actor, p->root) : BK_FRAME_NONE;
 }
-const char *bk_ending_selected_assets_model_name(const BkEndingSelectedAssets *a, unsigned actor) {
-  const SelectedActor *p = effect_actor(a, actor);
-  return p ? bk_clip_model_name(p->clips) : NULL;
-}
 BkMaterialPose *bk_ending_selected_assets_materials(BkEndingSelectedAssets *a, unsigned actor) {
   const SelectedActor *p = effect_actor(a, actor);
   return p ? p->materials : NULL;

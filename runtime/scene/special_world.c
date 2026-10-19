@@ -40,7 +40,6 @@ const BkFaceState *bk_special_world_face_state(const BkSpecialWorld *w) { return
 BkSceneLighting *bk_special_world_lighting(BkSpecialWorld *w) { return w ? w->lighting : NULL; }
 BkEndingCameraPresets *bk_special_world_presets(BkSpecialWorld *w) { return w ? &w->presets : NULL; }
 uint32_t bk_special_world_root(const BkSpecialWorld *w, unsigned i) { return w && i < 3 ? w->roots[i] : BK_FRAME_NONE; }
-uint32_t bk_special_world_focus(const BkSpecialWorld *w) { return w ? w->focus : BK_FRAME_NONE; }
 uint32_t bk_special_world_back(const BkSpecialWorld *w) { return w ? w->back : BK_MODEL_NONE; }
 int bk_special_world_needs_movie(const BkSpecialWorld *w) { return w && (w->group == 1 || w->group == 4); }
 void bk_special_world_destroy(BkSpecialWorld *w) {

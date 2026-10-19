@@ -29,7 +29,7 @@ def bind(lib):
         ('config', [p], C.POINTER(Config)), ('replaced_background', [p], n),
         ('background_first', [p], n), ('background', [p], p), ('forest', [p], p),
         ('pose', [p, u], p), ('root', [p, u], C.c_uint32),
-        ('model_name', [p, u], C.c_char_p), ('advance', [p, u, f, p], n),
+        ('advance', [p, u, f, p], n),
         ('advance_plain', [p, f, n, p], n),
         ('pointer', [p, C.POINTER(C.c_int32), C.POINTER(C.c_int32),
                       C.POINTER(C.c_int32), p], n),

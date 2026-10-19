@@ -1,13 +1,15 @@
-# world 模块：相机帧阶段已实现，其余 M3 能力待恢复
+# world：姿态、路线与空间查询
 
-本模块只依赖 core/model，不直接访问资源文件、libnx 或 Vulkan，不判断剧情任务成败。
+提供节点树、演员姿态、路线推进、跟随/交接镜头、地面/墙面/可见性和碰撞查询。依赖 core/model，不直接访问资源文件、libnx 或 Vulkan，也不判断任务成败。
 
-为解决 M1 的真实镜头依赖，已加入 `bk_world` 和 `follow_camera`：实现原 0x4bdc12 的角色原点绑定、半速 XAN、朝向与平滑；使用上次 publish 的轨道世界位置。step 与 publish 明确分开，未发布时连续推进仍读取旧世界位置，失败保留相机姿态与动作时间。调用方提供真实角色原点、缓存头位置及障碍查询结果，不在此处猜角色高度、路线或活动流程。
+## 发布与缓存
 
-原型经单一隔离 x86 环境中的实际调度、SRT、控制器和 D3DX 遍历对照。资源诊断场景暂不无条件调用跟随控制器；初始化流程、路线、碰撞与其他镜头分支继续恢复。世界实体、移动、碰撞和完整 M3 尚未完成。
+[actor_pose.h](actor_pose.h)、[actor_forest.h](actor_forest.h) 和 [frame_tree.h](frame_tree.h) 将局部姿态更新与世界矩阵发布分开。根放置、动画提交和节点遍历是不同操作；原版阶段可能读取上次 publish 的缓存，不应为了“刷新”在任意边界重算整棵树。调用方负责资产及实例寿命，见[节点发布记录](../../reports/frame-tree.md)。
 
-`route` 解析 CKP 的最多1024个20字节记录，保持终止哨兵（单点路线也会读取下一零点）。`placement` 恢复相邻点朝向及根放置；Y由上层入口表提供。`actor_pose` 借用模型/XAN，根设置立即可见，子节点/头位置保持到显式 publish。创建时放置基础姿态，不消耗动作计时；后续动作请求、时间和放置失败时一并回滚。
+## 路线与镜头
 
-`player_camera` 恢复身体后方/缓存头节点两种交接。原偏移角使用double 0.01745，旋转使用另一float常数；交接按原Euler角矩阵插值，不使用四元数替代。follow实例可交接且不推进XAN。完成只按各轴±0.2的位置范围，不能改成角度/距离联合阈值。
+[route.h](route.h) 区分活动运动节点、保留终点和固定 1024 槽 flag 查询。跨区域保留的索引可用于 flag 槽读取，不代表允许访问无效运动节点；相关修复见[存档后交接](../../reports/checkpoint-next-story.md)。[route_motion.h](route_motion.h) 只负责运动与边界，跨点动作和任务结果归 game。
 
-`route_motion` 恢复0x50132f/0x50164b的水平推进、跨点、跑步倒计数和矩阵角插值。首段严格超过才跨点，后续无flag段包含等于边界；有flag的点中止继续跳段。保留高度，超过已解码哨兵原子失败，交由game处理到点动作与路线结束。未包含场景碰撞。
+[follow_camera.h](follow_camera.h)、[player_camera.h](player_camera.h) 和 [ending_camera.h](ending_camera.h) 消费调用方提供的演员、节点及时间状态。保持已恢复的混合精度、过渡判据与查询顺序；真实场景障碍接入见[跟随障碍记录](../../reports/follow-obstacle.md)。
+
+[collision.h](collision.h)、[ground.h](ground.h) 与 [visibility.h](visibility.h) 处理 CPU 几何；加载、动态实例和帧内调用次序由 scene/game 组合。[架构](../../docs/architecture.md)描述上层所有权。

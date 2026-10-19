@@ -47,7 +47,7 @@ def bind(lib):
     api=[('create',[P,U,F,C.POINTER(CameraState),C.POINTER(Transitions),UP,UP,event.BP,C.c_size_t,P],P),
          ('destroy',[P],None),('pose',[P,U],P),('forest',[P],P),('face',[P],P),('eyes',[P],P),
          ('face_state',[P],C.POINTER(FaceState)),('presets',[P],C.POINTER(Presets)),
-         ('root',[P,U],U),('back',[P],U),('focus',[P],U),('needs_movie',[P],C.c_int),
+         ('root',[P,U],U),('back',[P],U),('needs_movie',[P],C.c_int),
          ('step',[P,C.POINTER(event.Bindings),FP,U,C.POINTER(Services),P],C.c_int)]
     for name,args,result in api:
         fn=getattr(lib,'bk_special_world_'+name);fn.argtypes=args;fn.restype=result

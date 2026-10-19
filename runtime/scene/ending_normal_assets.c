@@ -317,13 +317,6 @@ BkActorPose *bk_ending_normal_assets_pose(BkEndingNormalAssets *a, unsigned i) {
          : i == 4 ? a->actors[2].pose
                   : NULL;
 }
-const char *bk_ending_normal_assets_model_name(const BkEndingNormalAssets *a,
-                                               unsigned i) {
-  if (!a || (i > 1 && i != 4))
-    return NULL;
-  const Actor *actor = &a->actors[i == 4 ? 2 : i];
-  return actor->clips ? bk_clip_model_name(actor->clips) : NULL;
-}
 BkBomAssets *bk_ending_normal_assets_bom(BkEndingNormalAssets *a) {
   return a ? a->bom : NULL;
 }
