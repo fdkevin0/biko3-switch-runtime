@@ -11,7 +11,7 @@ BkTitleMenuRender *bk_title_menu_render_create(BkRenderer *, BkResourceStore *,
                                                char error[256]);
 void bk_title_menu_render_destroy(BkTitleMenuRender *);
 /* Already evaluated corners, including zero-sized initial zooms. No menu
- * stepping or pointer/flow mutation. Caller sets the logical viewport. */
+ * stepping or pointer/flow mutation. width/height describe the logical canvas; caller sets the physical viewport. */
 int bk_title_menu_render_prepare(BkTitleMenuRender *, const BkTitleMenuFrame *,
                                  unsigned width, unsigned height,
                                  char error[256]);

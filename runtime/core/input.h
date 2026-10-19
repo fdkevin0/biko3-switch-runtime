@@ -25,6 +25,7 @@ enum {
 };
 typedef struct {
   uint32_t held, pressed, released;
+  /* Device axes normalized to [-1, 1]; consumers own deadzones/calibration. */
   float move_x, move_y, look_x, look_y;
   float pointer_x, pointer_y, pointer_motion_x, pointer_motion_y;
   uint8_t pointer_active;

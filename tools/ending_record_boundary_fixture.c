@@ -1,3 +1,4 @@
+#include "ui_probe_input.h"
 /* Test-only read access to actual ending scenes. No record or unlock words
  * are injected here. The ordinary natural-input driver avoids the isolated
  * probe's selected-stage boundary; incoming story navigation remains explicit. */
@@ -7,8 +8,8 @@
 int record_probe_point(BkScene *scene, BkInput *in, char e[256]) {
   EndingNormalScene *s=bk_scene_custom_context(scene);int32_t point[2];
   if(!s || !s->selected_assets || !bk_ending_ui_project_target(&s->ui_pick,4,point,e)) return 0;
-  *in=(BkInput){.pointer_active=1,.pointer_x=s->viewport.x+(float)point[0],
-      .pointer_y=s->viewport.y+(float)point[1]};return 1;
+  *in=(BkInput){.pointer_active=1,.pointer_x=probe_ui_x(&s->viewport, (float)point[0]),
+      .pointer_y=probe_ui_y(&s->viewport, (float)point[1])};return 1;
 }
 /* Search with scratch outputs, leaving the live frame/targets/UI untouched. */
 int record_probe_alternate(BkScene *scene, BkInput *in, char e[256]) {
@@ -22,13 +23,15 @@ int record_probe_alternate(BkScene *scene, BkInput *in, char e[256]) {
   BkEndingUiSprite ring=s->ui.sprites[50];
   BkEndingSecondaryPickBindings b={&frame,&kind,&column,targets,alternate,
       &ring,&s->ui_pick,world};
-  for(unsigned y=0;y<s->viewport.height;++y)
-    for(unsigned x=0;x<s->viewport.width;++x) {
-      int32_t picked=0;float pointer[2]={(float)x,(float)y};
+  for(unsigned py=0;py<s->viewport.height;++py)
+    for(unsigned px=0;px<s->viewport.width;++px) {
+      float x=(float)px*BK_UI_WIDTH/s->viewport.width;
+      float y=(float)py*BK_UI_HEIGHT/s->viewport.height;
+      int32_t picked=0;float pointer[2]={x,y};
       if(!bk_ending_secondary_pick(&b,pointer,4,&picked,e)) return 0;
       if(picked==2) {
-        *in=(BkInput){.pointer_active=1,.pointer_x=s->viewport.x+(float)x,
-            .pointer_y=s->viewport.y+(float)y};
+        *in=(BkInput){.pointer_active=1,.pointer_x=s->viewport.x+px,
+            .pointer_y=s->viewport.y+py};
         return 1;
       }
     }
@@ -137,12 +140,12 @@ static int third_target(EndingNormalScene *s, BkInput *in, char e[256]) {
   BkEndingUiSprite ring = s->ui.sprites[50];
   BkEndingTargetBindings b = {&f, &s->state->control, &s->state->auxiliary,
       &clip.slot, actions, points, &kind, &column, &ring, camera.local, &s->ui_pick};
-  BkEndingSecondaryMenuGeometry geometry = {s->viewport.width, s->viewport.height,
-      (float)((double)s->viewport.width / 1280.), s->ui.sprites[51].rect[2]};
+  BkEndingSecondaryMenuGeometry geometry = {BK_UI_WIDTH, BK_UI_HEIGHT,
+      (float)((double)BK_UI_WIDTH / 1280.), s->ui.sprites[51].rect[2]};
   /* Revalidate an existing aim through the same real picker before doing
    * another exhaustive search. This never reuses stale hit output. */
   if (in->pointer_active) {
-    float point[2] = {in->pointer_x - s->viewport.x, in->pointer_y - s->viewport.y};
+    float point[2] = {(in->pointer_x - s->viewport.x) * BK_UI_WIDTH / s->viewport.width, (in->pointer_y - s->viewport.y) * BK_UI_HEIGHT / s->viewport.height};
     int hit; int32_t zone;
     if (!bk_ending_target_step(&b, point, &hit, e)) return -1;
     if (hit && f.camera_cached == wanted) {
@@ -152,21 +155,23 @@ static int third_target(EndingNormalScene *s, BkInput *in, char e[256]) {
   }
   float closest = INFINITY;
   int found = 0;
-  for (unsigned y = 0; y < s->viewport.height; ++y)
-    for (unsigned x = 0; x < s->viewport.width; ++x) {
-      float p[2] = {(float)x, (float)y};
+  for (unsigned py = 0; py < s->viewport.height; ++py)
+    for (unsigned px = 0; px < s->viewport.width; ++px) {
+      float x = (float)px * BK_UI_WIDTH / s->viewport.width;
+      float y = (float)py * BK_UI_HEIGHT / s->viewport.height;
+      float p[2] = {x, y};
       int hit;
       int32_t zone;
       if (!bk_ending_target_step(&b, p, &hit, e)) return -1;
       if (!hit || f.camera_cached != wanted) continue;
       if (!bk_ending_secondary_menu_zone(&geometry, points[wanted], &zone, e)) return -1;
       if (zone == -1) continue;
-      float dx = (float)x - points[wanted][0], dy = (float)y - points[wanted][1];
+      float dx = x - points[wanted][0], dy = y - points[wanted][1];
       float distance = dx * dx + dy * dy;
       if (distance >= closest) continue;
       closest = distance;
-      *in = (BkInput){.pointer_active = 1, .pointer_x = s->viewport.x + (float)x,
-          .pointer_y = s->viewport.y + (float)y};
+      *in = (BkInput){.pointer_active = 1, .pointer_x = s->viewport.x + px,
+          .pointer_y = s->viewport.y + py};
       found = 1;
     }
   return found;
@@ -198,17 +203,17 @@ int record_probe_third_input(BkScene *scene, BkRecordNaturalInput *d,
       if (frame % 30 == 1) in->held = BK_BUTTON_CONFIRM;
     } else if (!d->has_aim) {
       *in = (BkInput){.pointer_active = 1,
-          .pointer_x = s->viewport.x + s->viewport.width * .5f,
-          .pointer_y = s->viewport.y + s->viewport.height * .5f,
+          .pointer_x = probe_ui_x(&s->viewport, BK_UI_WIDTH * .5f),
+          .pointer_y = probe_ui_y(&s->viewport, BK_UI_HEIGHT * .5f),
           .held = BK_BUTTON_CAMERA_ADJUST, .look_x = -.5f};
     }
   } else if (st->stage3_state == 3) {
     in->pointer_active = 1;
-    in->pointer_x = s->viewport.x + (float)st->points[0][0];
-    in->pointer_y = s->viewport.y + (float)st->points[0][1];
+    in->pointer_x = probe_ui_x(&s->viewport, (float)st->points[0][0]);
+    in->pointer_y = probe_ui_y(&s->viewport, (float)st->points[0][1]);
     if (st->retained.stage2.word_6a3c20 == 1 && !st->ui_controller.hints.movement_ready) {
       in->pointer_active = 0; in->held = BK_BUTTON_CONFIRM;
-      in->pointer_motion_x = frame % 16 < 8 ? 2 : -2;
+      in->pointer_motion_x = probe_ui_motion_x(&s->viewport, frame % 16 < 8 ? 2.f : -2.f);
     }
   }
   in->pressed = in->held & ~d->previous_buttons;
@@ -229,17 +234,19 @@ static int auxiliary_target(EndingNormalScene *s, BkInput *in, char e[256]) {
       &frame, &kind, &column, targets, alternate_point, &ring, &s->ui_pick,
       alternate};
   BkEndingSecondaryMenuGeometry geometry = {
-      s->viewport.width, s->viewport.height,
-      (float)((double)s->viewport.width / 1280.0), s->ui.sprites[51].rect[2]};
+      BK_UI_WIDTH, BK_UI_HEIGHT,
+      (float)((double)BK_UI_WIDTH / 1280.0), s->ui.sprites[51].rect[2]};
   memcpy(targets, s->state->targets, sizeof(targets));
   memcpy(alternate_point, s->state->alternate, sizeof(alternate_point));
 
   /* State1's preferred target is the auxiliary camera slot4. Search through
    * the same picker and menu-zone services as the live controller. The
    * scratch frame prevents this observer from publishing a second target. */
-  for (unsigned y = 0; y < s->viewport.height; ++y)
-    for (unsigned x = 0; x < s->viewport.width; ++x) {
-      float point[2] = {(float)x, (float)y};
+  for (unsigned py = 0; py < s->viewport.height; ++py)
+    for (unsigned px = 0; px < s->viewport.width; ++px) {
+      float x = (float)px * BK_UI_WIDTH / s->viewport.width;
+      float y = (float)py * BK_UI_HEIGHT / s->viewport.height;
+      float point[2] = {x, y};
       int32_t hit, zone;
       if (!bk_ending_secondary_pick(&bindings, point, 4, &hit, e))
         return -1;
@@ -251,8 +258,8 @@ static int auxiliary_target(EndingNormalScene *s, BkInput *in, char e[256]) {
         continue;
       *in = (BkInput){
           .pointer_active = 1,
-          .pointer_x = s->viewport.x + (float)x,
-          .pointer_y = s->viewport.y + (float)y};
+          .pointer_x = s->viewport.x + px,
+          .pointer_y = s->viewport.y + py};
       return 1;
     }
   return 0;
@@ -284,8 +291,8 @@ int record_probe_auxiliary_input(BkScene *scene, BkRecordNaturalInput *d,
       in->held = BK_BUTTON_CONFIRM;
   } else if (state == 3) {
     in->pointer_active = 1;
-    in->pointer_x = s->viewport.x + (float)s->state->points[0][0];
-    in->pointer_y = s->viewport.y + (float)s->state->points[0][1];
+    in->pointer_x = probe_ui_x(&s->viewport, (float)s->state->points[0][0]);
+    in->pointer_y = probe_ui_y(&s->viewport, (float)s->state->points[0][1]);
     in->held = ++d->held_frames < 60 ? BK_BUTTON_CONFIRM : 0;
   }
   in->pressed = in->held & ~d->previous_buttons;
@@ -309,9 +316,11 @@ static int natural_target(EndingNormalScene *s, BkInput *in, char e[256]) {
       bk_ending_normal_assets_config(s->assets)->actions, targets,
       &kind, &column, &ring, camera.local, &s->ui_pick};
   int best = -1;
-  for (unsigned y = 0; y < s->viewport.height; ++y)
-    for (unsigned x = 0; x < s->viewport.width; ++x) {
-      float point[2] = {(float)x, (float)y};
+  for (unsigned py = 0; py < s->viewport.height; ++py)
+    for (unsigned px = 0; px < s->viewport.width; ++px) {
+      float x = (float)px * BK_UI_WIDTH / s->viewport.width;
+      float y = (float)py * BK_UI_HEIGHT / s->viewport.height;
+      float point[2] = {x, y};
       int hit;
       if (!bk_ending_target_step(&b, point, &hit, e)) return -1;
       if (!hit) continue;
@@ -319,6 +328,12 @@ static int natural_target(EndingNormalScene *s, BkInput *in, char e[256]) {
       int target = node == 1 ? 0 : node == 11 ? 1 : node == 12 ? 2 :
           node == 9 ? 3 : node == 10 ? 4 :
           (node == 26 || node == 27) ? 5 : node == 5 ? 6 : -1;
+      /* A visible circle edge can have an offscreen center. Manual warp
+       * then fights the canvas clamp and manufactures fast motion each tick. */
+      if (target >= 0 && (targets[node][0] < 0 || targets[node][1] < 0 ||
+          targets[node][0] >= (int32_t)BK_UI_WIDTH ||
+          targets[node][1] >= (int32_t)BK_UI_HEIGHT))
+        continue;
       int score = -1;
       if (node == 6 && s->state->auxiliary.progress > .39f) score = 100;
       else if (target >= 0)
@@ -327,8 +342,8 @@ static int natural_target(EndingNormalScene *s, BkInput *in, char e[256]) {
       if (score > 0 && score > best) {
         best = score;
         *in = (BkInput){.pointer_active = 1,
-            .pointer_x = s->viewport.x + (float)x,
-            .pointer_y = s->viewport.y + (float)y};
+            .pointer_x = s->viewport.x + px,
+            .pointer_y = s->viewport.y + py};
       }
     }
   return best > 0;
@@ -347,12 +362,14 @@ static int natural_secondary_target(EndingNormalScene *s, BkInput *in,
   BkEndingUiSprite ring = s->ui.sprites[50];
   BkEndingSecondaryPickBindings b = {&frame, &kind, &column, targets,
       alternate, &ring, &s->ui_pick, world};
-  BkEndingSecondaryMenuGeometry geometry = {s->viewport.width,
-      s->viewport.height, (float)((double)s->viewport.width / 1280.),
+  BkEndingSecondaryMenuGeometry geometry = {BK_UI_WIDTH,
+      BK_UI_HEIGHT, (float)((double)BK_UI_WIDTH / 1280.),
       s->ui.sprites[51].rect[2]};
-  for (unsigned y = 0; y < s->viewport.height; ++y)
-    for (unsigned x = 0; x < s->viewport.width; ++x) {
-      float point[2] = {(float)x, (float)y};
+  for (unsigned py = 0; py < s->viewport.height; ++py)
+    for (unsigned px = 0; px < s->viewport.width; ++px) {
+      float x = (float)px * BK_UI_WIDTH / s->viewport.width;
+      float y = (float)py * BK_UI_HEIGHT / s->viewport.height;
+      float point[2] = {x, y};
       int32_t hit, zone;
       if (!bk_ending_secondary_pick(&b, point, 0, &hit, e)) return -1;
       if (hit != 2) continue;
@@ -362,8 +379,8 @@ static int natural_secondary_target(EndingNormalScene *s, BkInput *in,
        * outside the original allowed area. Use real camera input first. */
       if (zone == -1) continue;
       *in = (BkInput){.pointer_active = 1,
-          .pointer_x = s->viewport.x + (float)x,
-          .pointer_y = s->viewport.y + (float)y};
+          .pointer_x = s->viewport.x + px,
+          .pointer_y = s->viewport.y + py};
       return 1;
     }
   return 0;
@@ -410,8 +427,8 @@ int record_probe_early_input(BkScene *scene, BkRecordNaturalInput *d,
       while (choice < 3 && st->choices[choice] != 4) ++choice;
       if (choice == 3) return fail(e, "real secondary menu lacks choice4");
       *in = (BkInput){.pointer_active = 1,
-          .pointer_x = s->viewport.x + (float)st->points[choice][0],
-          .pointer_y = s->viewport.y + (float)st->points[choice][1]};
+          .pointer_x = probe_ui_x(&s->viewport, (float)st->points[choice][0]),
+          .pointer_y = probe_ui_y(&s->viewport, (float)st->points[choice][1])};
     }
   } else if (st->frame.phase == 7) {
     if (frame % 30 == 1) in->held = BK_BUTTON_CONFIRM;
@@ -425,8 +442,8 @@ int record_probe_early_input(BkScene *scene, BkRecordNaturalInput *d,
       if (d->has_aim && frame % 30 == 1) in->held = BK_BUTTON_CONFIRM;
       if (!d->has_aim) {
         *in = (BkInput){.pointer_active = 1,
-            .pointer_x = s->viewport.x + s->viewport.width * .5f,
-            .pointer_y = s->viewport.y + s->viewport.height * .5f,
+            .pointer_x = probe_ui_x(&s->viewport, BK_UI_WIDTH * .5f),
+            .pointer_y = probe_ui_y(&s->viewport, BK_UI_HEIGHT * .5f),
             .held = BK_BUTTON_CAMERA_ADJUST, .look_x = -.8f};
       }
     } else if (st->frame.state_721ee0 == 3 &&
@@ -439,7 +456,8 @@ int record_probe_early_input(BkScene *scene, BkRecordNaturalInput *d,
       if (!done && d->held_frames < 360) {
         in->held = BK_BUTTON_CONFIRM;
         float magnitude = d->held_frames % 120 < 60 ? 3 : 12;
-        in->pointer_motion_x = d->held_frames % 8 < 4 ? magnitude : -magnitude;
+        in->pointer_motion_x = probe_ui_motion_x(&s->viewport,
+            d->held_frames % 8 < 4 ? magnitude : -magnitude);
       }
     }
   } else return fail(e, "unexpected phase before natural selected entry");

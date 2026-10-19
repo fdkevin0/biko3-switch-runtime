@@ -9,7 +9,7 @@
 | [record.h](record.h)、[record_file.h](record_file.h) | 借用 app 的记录数组视图，保留路线、动作和计数 |
 | [volume_file.h](volume_file.h) | 进程级语音、BGM、音效设置 |
 | [capture_file.h](capture_file.h) | 独立输出目录中的暂停背景和相册 BMP |
-| [file_commit.h](file_commit.h) | app 注入的平台事务提交回调，供 NSP HOS 存档使用 |
+| [../core/file.h](../core/file.h) | 设置与存档共用的文件替换、备份恢复及平台事务提交回调 |
 
 磁盘格式显式编解码字段，不转储 C 结构体、指针或 GPU 句柄。移植版检查点、解锁和动作记录带版本/维度/CRC 检查；读取完整校验后才发布。缺失、损坏和 I/O 失败分开处理，损坏旧文件不能当作空档覆盖。
 

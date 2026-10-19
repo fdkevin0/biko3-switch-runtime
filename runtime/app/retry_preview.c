@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "app/retry_preview.h"
 #include "scene/pause_render.h"
 #include "scene/system_audio.h"
@@ -7,7 +8,7 @@
 typedef struct {
   BkRenderer *renderer;
   BkPauseRender *render;
-  BkViewport viewport;
+  BkViewport viewport, display;
   BkRetryState *state;
   BkCheckpointPrompt *checkpoint;
   uint8_t *phase;
@@ -55,7 +56,7 @@ static int resize(void *context, unsigned width, unsigned height,
                   char error[256]) {
   ChoicePreview *r = context;
   if (!r || !width || !height ||
-      !bk_camera_fit(&r->viewport, width, height, 4, 3)) {
+      !bk_camera_fit(&r->display, width, height, 4, 3)) {
     snprintf(error, 256, "retry preview: invalid resize viewport");
     return 0;
   }
@@ -69,6 +70,10 @@ static int step(void *context, double seconds, const BkInput *input,
     snprintf(error, 256, "retry preview: invalid time/input");
     return 0;
   }
+  BkInput mapped;
+  if (!bk_ui_input(&mapped, input, &r->display, error))
+    return 0;
+  input = &mapped;
   if (input->pointer_active) {
     r->point[0] = input->pointer_x - r->viewport.x;
     r->point[1] = input->pointer_y - r->viewport.y;
@@ -109,11 +114,11 @@ static int draw(void *context, const BkSceneFrame *frame, char error[256]) {
   }
   unsigned drawable_width, drawable_height;
   bk_renderer_extent(r->renderer, &drawable_width, &drawable_height);
-  if (!bk_camera_fit(&r->viewport, drawable_width, drawable_height, 4, 3)) {
+  if (!bk_camera_fit(&r->display, drawable_width, drawable_height, 4, 3)) {
     snprintf(error, 256, "retry preview: invalid drawable viewport");
     return 0;
   }
-  return bk_renderer_viewport(r->renderer, &r->viewport, error) &&
+  return bk_renderer_viewport(r->renderer, &r->display, error) &&
          bk_pause_render_draw(r->render, error) &&
          bk_renderer_viewport(r->renderer, NULL, error);
 }
@@ -151,8 +156,9 @@ static BkScene *create(const BkSceneServices *services, BkRetryState *state,
   r->release = *flow_ops;
   r->elapsed = elapsed;
   unsigned width, height;
+  r->viewport = bk_ui_canvas();
   bk_renderer_extent(r->renderer, &width, &height);
-  if (!bk_camera_fit(&r->viewport, width, height, 4, 3))
+  if (!bk_camera_fit(&r->display, width, height, 4, 3))
     goto bad;
   const unsigned slots[] = {0, 2, 3};
   for (unsigned i = 0; i < 3; ++i) {

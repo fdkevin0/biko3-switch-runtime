@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "save/record_file.h"
-#include "save/file_replace_internal.h"
+#include "core/file.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +42,7 @@ BkRecordFile *bk_record_file_create(const char *root, char e[256]) {
 }
 void bk_record_file_destroy(BkRecordFile *f) { free(f); }
 static BkResourceResult read_bytes(BkRecordFile *f, uint8_t *bytes, char e[256]) {
-  if (!bk_save_file_recover(f->path, e)) return BK_RESOURCE_ERROR;
+  if (!bk_file_recover(f->path, e)) return BK_RESOURCE_ERROR;
   FILE *in = fopen(f->path, "rb");
   if (!in) {
     if (errno == ENOENT) return BK_RESOURCE_MISSING;
@@ -78,6 +78,6 @@ int bk_record_file_store(BkRecordFile *f, const BkRecordView v[5], char e[256]) 
   if (ok && fsync(fileno(file))) ok = 0;
   if (fclose(file)) ok = 0;
   if (!ok) { remove(temporary); return fail(e, "write/flush/close failed"); }
-  if (!bk_save_file_replace(temporary, f->path, e)) { remove(temporary); return 0; }
+  if (!bk_file_replace(temporary, f->path, e)) { remove(temporary); return 0; }
   return 1;
 }

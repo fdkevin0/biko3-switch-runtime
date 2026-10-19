@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "app/game_preview.h"
 #include "app/capture_output.h"
 #include "core/camera.h"
@@ -385,7 +386,7 @@ static int step(void *context, double seconds, const BkInput *device,
   /* Joy-Con axes are normalized; map full deflection to60 degrees/second. */
   g->input.look[0] = fabsf(device->look_x) > .15f ? device->look_x * 60 : 0;
   g->input.look[1] = fabsf(device->look_y) > .15f ? -device->look_y * 60 : 0;
-  BkViewport local = {0, 0, g->viewport.width, g->viewport.height};
+  BkViewport local = {0, 0, BK_UI_WIDTH, BK_UI_HEIGHT};
   BkScreenPoint projected;
   if (!bk_entry_assets_project_actor_head(g->entry, &projected, g->view,
                                           &g->lens, &local)) {
@@ -437,11 +438,11 @@ static int step(void *context, double seconds, const BkInput *device,
       !bk_item_notice_render_prepare_opening(
           g->notice_render, &g->notice, &g->prompt, old_phase,
           g->state->pickup.notice_visible, &g->text_flow, (float)seconds,
-          g->viewport.width, g->viewport.height, error))
+          BK_UI_WIDTH, BK_UI_HEIGHT, error))
     return 0;
   if (g->hud_ready && old_phase == 1 && g->state->camera.phase == 1 &&
       !bk_player_hud_session_step(&g->hud, g->state, 0, g->view, &g->lens,
-                                  g->viewport.width, g->viewport.height,
+                                  BK_UI_WIDTH, BK_UI_HEIGHT,
                                   (float)seconds, g->now_ms, &g->hud_frame,
                                   &(int){0}, error))
     return 0;
@@ -449,14 +450,14 @@ static int step(void *context, double seconds, const BkInput *device,
     g->hud_frame = (BkPlayerHudFrame){0};
   if (g->hud_ready && old_phase == 1 && g->state->camera.phase == 1 &&
       !bk_player_hud_render_prepare(g->hud_render, &g->hud_frame,
-                                    g->viewport.width, g->viewport.height,
+                                    BK_UI_WIDTH, BK_UI_HEIGHT,
                                     error))
     return 0;
   if (g->draw_phase == 1 && !bk_item_notice_render_prepare(
                                 g->notice_render, &g->notice, &g->state->pickup,
                                 bk_item_feedback_message(g->item_feedback),
                                 &g->text_flow, (float)seconds, g->now_ms,
-                                g->viewport.width, g->viewport.height, error))
+                                BK_UI_WIDTH, BK_UI_HEIGHT, error))
     return 0;
   if (g->owns_audio && !bk_audio_fill(g->audio, error))
     return 0;
@@ -716,7 +717,7 @@ static int load(GamePreview *g, const BkSceneServices *services,
     return 0;
   bk_pulse_sprite_initialize(&g->prompt);
   g->lens = (BkCameraLens){1, .75f, .5f, 126384};
-  if (!bk_player_hud_initialize(&g->hud, request.group, 0, g->viewport.width) ||
+  if (!bk_player_hud_initialize(&g->hud, request.group, 0, BK_UI_WIDTH) ||
       !bk_opening_session_initialize(
           &(BkOpeningServices){
               g->resources, g->entry, &g->dialogue, g->item_feedback, g->click,
@@ -724,6 +725,7 @@ static int load(GamePreview *g, const BkSceneServices *services,
           g->state, &g->notice, &g->text_flow, error))
     return 0;
   g->screenshot_request.screenshot = g->screenshot;
+  g->screenshot_request.follow_viewport = 1;
   g->hud_ready = 1;
   g->opening_ready = 1;
   if (!refresh_camera(g, error))
@@ -1010,7 +1012,7 @@ int bk_game_preview_failure_step(BkScene *scene, BkFailureHudState *failure,
     return 0;
   return bk_item_notice_render_prepare_failure(
       g->notice_render, &g->notice, &g->prompt, out, &g->text_flow,
-      (float)seconds, g->viewport.width, g->viewport.height, error);
+      (float)seconds, BK_UI_WIDTH, BK_UI_HEIGHT, error);
 }
 
 float *bk_game_preview_hud_reserve(BkScene *scene) {

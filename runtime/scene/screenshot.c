@@ -10,11 +10,26 @@ struct BkScreenshot {
   unsigned width, height, group;
   const uint32_t *live_group;
   BkViewport crop;
-  int pending, photo, configured;
+  int pending, photo, configured, follow_viewport;
 };
 static int fail(char *e, const char *why) {
   snprintf(e, 256, "screenshot: %s", why);
   return 0;
+}
+static int refresh_extent(BkScreenshot *s, char e[256]) {
+  unsigned width, height;
+  bk_renderer_extent(s->renderer, &width, &height);
+  if (!width || !height || width > 16384 || height > 16384)
+    return fail(e, "invalid target extent");
+  if (s->pixels && width == s->width && height == s->height)
+    return 1;
+  uint8_t *pixels = realloc(s->pixels, (size_t)width * height * 4);
+  if (!pixels)
+    return fail(e, "pixel allocation failed");
+  s->pixels = pixels;
+  s->width = width;
+  s->height = height;
+  return 1;
 }
 BkScreenshot *bk_screenshot_create(BkRenderer *r, BkResourceStore *store,
                                    const BkScreenshotOutput *output,
@@ -31,16 +46,8 @@ BkScreenshot *bk_screenshot_create(BkRenderer *r, BkResourceStore *store,
   s->renderer = r;
   s->store = store;
   s->output = *output;
-  bk_renderer_extent(r, &s->width, &s->height);
-  if (!s->width || !s->height || s->width > 16384 || s->height > 16384) {
-    fail(e, "invalid target extent");
+  if (!refresh_extent(s, e))
     goto bad;
-  }
-  s->pixels = malloc((size_t)s->width * s->height * 4);
-  if (!s->pixels) {
-    fail(e, "pixel allocation failed");
-    goto bad;
-  }
   return s;
 bad:
   bk_screenshot_destroy(s);
@@ -60,7 +67,11 @@ int bk_screenshot_bind_album_group(BkScreenshot *s, const uint32_t *group,
 }
 int bk_screenshot_configure(BkScreenshot *s, int photo, unsigned group,
                           const BkViewport *v, char e[256]) {
-  if (!s || !v || group >= 5 || !v->width || !v->height || v->x > s->width ||
+  if (!s || !v)
+    return fail(e, "missing owner/crop");
+  if (!refresh_extent(s, e))
+    return 0;
+  if (group >= 5 || !v->width || !v->height || v->x > s->width ||
       v->y > s->height || v->width > s->width - v->x ||
       v->height > s->height - v->y ||
       (photo && (v->width < 136 || v->height < 40)))
@@ -69,6 +80,13 @@ int bk_screenshot_configure(BkScreenshot *s, int photo, unsigned group,
   s->photo = !!photo;
   s->group = group;
   s->configured = 1;
+  s->follow_viewport = 0;
+  return 1;
+}
+int bk_screenshot_follow_viewport(BkScreenshot *s, char e[256]) {
+  if (!s || !s->configured)
+    return fail(e, "viewport capture has no configuration");
+  s->follow_viewport = 1;
   return 1;
 }
 int bk_screenshot_trigger(BkScreenshot *s, char e[256]) {
@@ -90,7 +108,9 @@ int bk_screenshot_request_service(void *context, int photo, unsigned group,
   if (!request)
     return fail(error, "missing request binding");
   return bk_screenshot_request(request->screenshot, photo, group,
-                               &request->crop, error);
+                               &request->crop, error) &&
+         (!request->follow_viewport ||
+          bk_screenshot_follow_viewport(request->screenshot, error));
 }
 static int capture(void *ctx, char e[256]) {
   BkScreenshot *s = ctx;
@@ -99,6 +119,16 @@ static int capture(void *ctx, char e[256]) {
   if (!s->pending)
     return 1;
   if (!s->configured) return fail(e, "pending capture has no configuration");
+  if (!refresh_extent(s, e))
+    return 0;
+  if (s->follow_viewport &&
+      !bk_camera_fit(&s->crop, s->width, s->height, 4, 3))
+    return fail(e, "invalid content capture viewport");
+  if (s->crop.x > s->width || s->crop.y > s->height ||
+      s->crop.width > s->width - s->crop.x ||
+      s->crop.height > s->height - s->crop.y ||
+      (s->photo && (s->crop.width < 136 || s->crop.height < 40)))
+    return fail(e, "capture crop exceeds resized target");
   BkImage watermark = {0}, output = {0};
   BkBlob raw = {0}, bmp = {0};
   int ok = 0;

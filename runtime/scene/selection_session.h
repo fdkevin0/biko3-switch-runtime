@@ -50,10 +50,7 @@ typedef struct {
  * Exactly one pending step; do not continue a partially failed frame. */
 int bk_selection_session_step(BkSelectionSession *,
                               const BkSelectionSessionInput *, char error[256]);
-/* Adapt retained UI coordinates without restarting actor/audio/animation. */
-int bk_selection_session_resize(BkSelectionSession *, unsigned width,
-                                unsigned height, char error[256]);
-/* Active GPU frame, caller sets the4:3 logical viewport. Re-draw is inert. */
+/* Active GPU frame, caller sets the physical4:3 viewport. Re-draw is inert. */
 int bk_selection_session_draw(BkSelectionSession *, char error[256]);
 /* After renderer.end, before another step/destruction. No loading callback
  * or target-scene success is invented here. Outer flow50 owns target loading.

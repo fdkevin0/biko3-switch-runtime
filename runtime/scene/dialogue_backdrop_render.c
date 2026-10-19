@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/dialogue_backdrop_render.h"
 #include <math.h>
 #include <stdlib.h>
@@ -90,10 +91,8 @@ int bk_dialogue_backdrop_render_prepare(BkDialogueBackdropRender *r,
       !isfinite(f->curtain_alpha) || f->image_alpha < 0 || f->image_alpha > 1 ||
       f->curtain_alpha < 0 || f->curtain_alpha > 1)
     return fail(e, "invalid frame/extent");
-  unsigned tw, th;
-  bk_renderer_extent(r->renderer, &tw, &th);
-  if (width > tw || height > th)
-    return fail(e, "viewport exceeds target");
+  if (!bk_ui_extent(width, height))
+    return fail(e, "invalid logical canvas extent");
   float q[2][2];
   if (!bk_dialogue_backdrop_extent(q[0], width, r->replacement) ||
       !bk_dialogue_backdrop_extent(q[1], width, 0))

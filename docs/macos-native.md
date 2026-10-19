@@ -44,7 +44,7 @@ brew install cmake sdl3 molten-vk vulkan-loader vulkan-headers glslang
 
 默认 960×720 窗口，支持拖动缩放与运行时全屏。内容保持 4:3，宽屏两侧黑边是预期布局。窗口尺寸变化会重建 swapchain/帧缓冲，失去焦点时暂停模拟并降低轮询频率。
 
-标题页和人物选择页会同步缩放缓存的按钮、图像与光标命中区域，保留当前选择和动画进度。本机 Retina 实际窗口与资源回归范围见[窗口缩放验证](../reports/macos-window-resize.json)。
+菜单与 HUD 使用固定逻辑画布，窗口变化只调整显示视口和输入映射，保留当前选择、动画及命中区域。暂停截图会按当前 drawable 更新缓冲。本机 Retina 窗口、真实资源流程与回归范围见[引擎边界修复验证](../reports/engine-boundaries-2026-10-19.json)；早期标题/人物选择页复现见[窗口缩放验证](../reports/macos-window-resize.json)。
 
 设置文件 `~/Library/Application Support/Biko3/settings.cfg` 示例：
 
@@ -93,7 +93,7 @@ game_path=/path/to/MAINDIR
 BIKO3_FULLSCREEN=1 ./build-macos/biko3
 ```
 
-SDL3 鼠标事件使用窗口 points，游戏使用 drawable 像素；2× Retina 的 960×720 窗口通常对应 1920×1440 drawable。平台按实际尺寸比例转换，scene 再处理 4:3 内容偏移。排障见[常见问题](faq.md)。
+SDL3 鼠标事件使用窗口 points，平台输入使用 drawable 像素；2× Retina 的 960×720 窗口通常对应 1920×1440 drawable。平台按实际尺寸比例转换，scene 再映射到 4:3 内容对应的 UI 逻辑画布。排障见[常见问题](faq.md)。
 
 ## app 与验证范围
 

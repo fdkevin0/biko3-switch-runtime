@@ -6,7 +6,7 @@ import unittest
 ROOT = Path(__file__).resolve().parent.parent
 ALLOWED = {
     'core': {'core'},
-    'save': {'save', 'resource'},
+    'save': {'save', 'core', 'resource'},
     'resource': {'resource'},
     'media': {'media', 'core', 'resource'},
     'model': {'model', 'core', 'resource'},
@@ -14,9 +14,9 @@ ALLOWED = {
     'game': {'game', 'world', 'core', 'resource'},
     'platform': {'platform', 'core', 'media'},
     'render': {'render', 'resource', 'core'},
-    'ui': {'ui', 'resource'},
+    'ui': {'ui', 'resource', 'core'},
     'scene': {'scene', 'core', 'resource', 'render', 'ui', 'model', 'game', 'world', 'media'},
-    'app': {'app', 'core', 'resource', 'platform', 'render', 'scene', 'media', 'save'},
+    'app': {'app', 'core', 'resource', 'platform', 'render', 'scene', 'media', 'save', 'ui'},
 }
 
 

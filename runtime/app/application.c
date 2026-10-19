@@ -7,7 +7,7 @@
 #include "platform/audio_output.h"
 #include "platform/platform.h"
 #include "save/capture_file.h"
-#include "save/file_commit.h"
+#include "core/file.h"
 #include "scene/fps_overlay.h"
 #include "scene/control_help.h"
 #include "scene/ending_normal_session.h"
@@ -253,20 +253,20 @@ static BkControlHelpPage help_page(BkSceneKind kind, BkScene *scene) {
   if (kind == BK_SCENE_TITLE_PREVIEW) return BK_HELP_TITLE;
   if (kind != BK_SCENE_GAME) return BK_HELP_INSPECTION;
   switch (bk_play_session_displayed_flow(scene)) {
-  case 1: return BK_HELP_TITLE;
-  case 2: return BK_HELP_GAME;
-  case 4: return BK_HELP_PAUSE;
-  case 8: return BK_HELP_DIALOGUE;
-  case 0x10: return BK_HELP_ENDING;
-  case 0x18: return BK_HELP_GALLERY;
-  case 0x20: case 0x68: return BK_HELP_CHOICE;
-  case 0x28: return BK_HELP_SAVE;
-  case 0x30: return BK_HELP_VOLUME;
-  case 0x38: return BK_HELP_SELECTION;
-  case 0x40: return BK_HELP_FAILURE;
-  case 0x48: return BK_HELP_SPECIAL;
-  case 0x50: return BK_HELP_LOADING;
-  case 0x60: return BK_HELP_ALBUM;
+  case BK_FLOW_TITLE: return BK_HELP_TITLE;
+  case BK_FLOW_GAME: return BK_HELP_GAME;
+  case BK_FLOW_PAUSE: return BK_HELP_PAUSE;
+  case BK_FLOW_DIALOGUE: return BK_HELP_DIALOGUE;
+  case BK_FLOW_ENDING: return BK_HELP_ENDING;
+  case BK_FLOW_GALLERY: return BK_HELP_GALLERY;
+  case BK_FLOW_CHECKPOINT: case BK_FLOW_RETRY: return BK_HELP_CHOICE;
+  case BK_FLOW_SAVE: return BK_HELP_SAVE;
+  case BK_FLOW_VOLUME: return BK_HELP_VOLUME;
+  case BK_FLOW_SELECTION: return BK_HELP_SELECTION;
+  case BK_FLOW_FAILURE: return BK_HELP_FAILURE;
+  case BK_FLOW_SPECIAL: return BK_HELP_SPECIAL;
+  case BK_FLOW_LOADING: return BK_HELP_LOADING;
+  case BK_FLOW_ALBUM: return BK_HELP_ALBUM;
   default: return BK_HELP_NONE;
   }
 }
@@ -291,6 +291,7 @@ int bk_application_run(int argc, char **argv) {
   int result = 1;
   if (!platform)
     goto done;
+  bk_file_set_commit(bk_platform_commit_save);
   FILE *log = bk_platform_log(platform);
   fprintf(log,
           "Biko3 development preview %s\nMesa commit %s\n"
@@ -344,7 +345,6 @@ int bk_application_run(int argc, char **argv) {
     goto done;
   if (audio_output && !bk_audio_output_start(audio_output, audio, error))
     goto done;
-  bk_save_set_commit(bk_platform_commit_save);
   if (config.capture_root) {
     capture_files = bk_capture_files_create(config.capture_root, error);
     if (!capture_files)
@@ -705,9 +705,9 @@ done:
   bk_unlock_file_destroy(unlock_file);
   bk_record_file_destroy(record_file);
   bk_volume_file_destroy(volume_file);
-  bk_save_set_commit(NULL);
   if (result)
     bk_platform_report_error(platform, error);
   bk_platform_close(platform);
+  bk_file_set_commit(NULL);
   return result;
 }

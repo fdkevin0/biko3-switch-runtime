@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "save/volume_file.h"
-#include "save/file_replace_internal.h"
+#include "core/file.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,7 +47,7 @@ BkVolumeFile *bk_volume_file_create(const char *root,char e[256]) {
     snprintf(path,sizeof(path),"%s/save",root);
     if(!directory(root,e) || !directory(path,e))goto bad;
     snprintf(s->path,sizeof(s->path),"%s/save/volume.cfg",root);
-    if(!bk_save_file_recover(s->path,e))goto bad;
+    if(!bk_file_recover(s->path,e))goto bad;
     if(read_values(s->path,s->values,e)<0)goto bad;
   }
   return s;
@@ -67,6 +67,6 @@ int bk_volume_file_store(BkVolumeFile *s,const int32_t values[3],char e[256]) {
   if(ok && fsync(fileno(f)))ok=0;
   if(fclose(f))ok=0;
   if(!ok) {remove(tmp);return fail(e,"write/flush/close failed");}
-  if(!bk_save_file_replace(tmp,s->path,e)) {remove(tmp);return 0;}
+  if(!bk_file_replace(tmp,s->path,e)) {remove(tmp);return 0;}
   memcpy(s->values,next,sizeof(next));return 1;
 }

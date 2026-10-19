@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "app/play_session.h"
 #include "app/front_end.h"
 #include "app/capture_output.h"
@@ -112,15 +113,15 @@ static void record_views(PlaySession *s, BkRecordView v[BK_RECORD_GROUPS]) {
 static int release(void *context, uint8_t flow, char error[256]) {
   PlaySession *s = context;
   log_line(s, "Flow release begin");
-  if (s->front && (flow == 1 || flow == 0x38 || flow == 8 || flow == 0x18 || flow == 0x48 || flow == 0x30 || flow == 0x60))
+  if (s->front && bk_flow_is_front_end(flow))
     return bk_front_end_stop(s->front, flow, error);
-  if (flow == 0x40 && s->failure_active && s->game) {
+  if (flow == BK_FLOW_FAILURE && s->failure_active && s->game) {
     if (!bk_game_preview_release_failure_audio(s->game, error))
       return 0;
     s->failure_active = 0;
     return 1;
   }
-  if (flow == 2 && s->game) {
+  if (flow == BK_FLOW_GAME && s->game) {
     if (!s->retire_game) {
       /* Logical release immediately silences game-owned voices. Meshes stay
        * alive until the already prepared last snapshot has been presented. */
@@ -131,11 +132,11 @@ static int release(void *context, uint8_t flow, char error[256]) {
     }
     return 1;
   }
-  if (flow == 4 && s->pause) {
+  if (flow == BK_FLOW_PAUSE && s->pause) {
     s->retire_pause = 1;
     return 1;
   }
-  if (flow == 0x20 && s->checkpoint && s->game && !s->retire_checkpoint) {
+  if (flow == BK_FLOW_CHECKPOINT && s->checkpoint && s->game && !s->retire_checkpoint) {
     if (!bk_game_preview_advance_area(s->game, s->flow.previous, error))
       return 0;
     bk_common_hud_entry_reset(&s->common);
@@ -143,15 +144,15 @@ static int release(void *context, uint8_t flow, char error[256]) {
     log_line(s, "Area advanced with retained actors");
     return 1;
   }
-  if (flow == 0x68 && s->retry) {
+  if (flow == BK_FLOW_RETRY && s->retry) {
     s->retire_retry = 1;
     return 1;
   }
-  if (flow == 0x28 && s->save) {
+  if (flow == BK_FLOW_SAVE && s->save) {
     s->retire_save = 1;
     return 1;
   }
-  if (flow == 0x10 && s->ending) {
+  if (flow == BK_FLOW_ENDING && s->ending) {
     const BkEndingState *ending_state =
         bk_ending_normal_scene_state(s->ending);
     if (!ending_state || ending_state->frame.group >= BK_UNLOCK_GROUPS) {
@@ -178,7 +179,7 @@ static int release(void *context, uint8_t flow, char error[256]) {
     s->retire_ending = 1;
     return 1;
   }
-  if (flow == 1 && s->title) {
+  if (flow == BK_FLOW_TITLE && s->title) {
     s->retire_title = 1;
     return 1;
   }
@@ -272,14 +273,14 @@ static int load_target(void *context, uint8_t target, char error[256]) {
   char message[64];
   snprintf(message, sizeof(message), "Flow load target%02x begin", target);
   log_line(s, message);
-  if (target == 0x58 && !s->game && !s->pause && !s->title && !s->retry &&
+  if (target == BK_FLOW_EXIT && !s->game && !s->pause && !s->title && !s->retry &&
       !s->checkpoint && !s->save && !s->ending &&
       !bk_front_end_active(s->front)) {
     /* Native4e7671 has no resources for58;466448 exits the outer loop on
      * this byte. Actual process teardown is owned by application.c. */
     return 1;
   }
-  if (s->front && (target == 1 || target == 0x38 || target == 8 || target == 0x18 || target == 0x48 || target == 0x30 || target == 0x60)) {
+  if (s->front && bk_flow_is_front_end(target)) {
     if (!bk_front_end_load(s->front, target, s->flow.previous,
                            s->game_state.interaction.response, s->elapsed,
                            s->pending_seconds, error))
@@ -287,7 +288,7 @@ static int load_target(void *context, uint8_t target, char error[256]) {
     log_line(s, "Original menu scene loaded");
     return 1;
   }
-  if (target == 0x28 && !s->save) {
+  if (target == BK_FLOW_SAVE && !s->save) {
     BkPauseBindings bindings = {&s->common, &s->flow, &s->cursor, &s->overlay,
                                 &s->hover};
     BkSavePreviewGame game = {
@@ -302,9 +303,9 @@ static int load_target(void *context, uint8_t target, char error[256]) {
     log_line(s, "Checkpoint menu loaded with writable port storage");
     return 1;
   }
-  if (target == 4)
+  if (target == BK_FLOW_PAUSE)
     return load_pause(s, error);
-  if (target == 0x10 && !s->ending) {
+  if (target == BK_FLOW_ENDING && !s->ending) {
     BkUnlockTable unlocked;
     if (!s->front || !bk_front_end_unlocks(s->front, &unlocked, error))
       return 0;
@@ -326,7 +327,7 @@ static int load_target(void *context, uint8_t target, char error[256]) {
                                       .camera = &s->menu_camera,
                                       .camera_transitions = &s->camera_transitions,
                                       .tertiary_controller = &s->ending_tertiary_controller};
-    if (s->flow.previous == 0x18) {
+    if (s->flow.previous == BK_FLOW_GALLERY) {
       BkGalleryMenuSelection result;
       if (!bk_front_end_gallery_result(s->front, &result, error))
         return 0;
@@ -351,18 +352,18 @@ static int load_target(void *context, uint8_t target, char error[256]) {
     if (!s->ending)
       return 0;
     s->ending_first_present = 1;
-    log_line(s, s->flow.previous == 0x18 ? "Gallery ending loaded for flow16"
+    log_line(s, s->flow.previous == BK_FLOW_GALLERY ? "Gallery ending loaded for flow16"
                                        : "Story ending loaded for flow16");
     return 1;
   }
-  if (target == 0x40 && s->game && !s->retire_game && !s->failure_active) {
+  if (target == BK_FLOW_FAILURE && s->game && !s->retire_game && !s->failure_active) {
     if (!bk_game_preview_load_failure(s->game, error))
       return 0;
     s->failure_active = 1;
     log_line(s, "Failure scene loaded with retained entry");
     return 1;
   }
-  if (target == 0x20 && s->game && !s->retire_game && !s->checkpoint) {
+  if (target == BK_FLOW_CHECKPOINT && s->game && !s->retire_game && !s->checkpoint) {
     if (!bk_game_preview_suspend_area(s->game, error))
       return 0;
     BkPauseBindings bindings = {&s->common, &s->flow, &s->cursor, &s->overlay,
@@ -377,7 +378,7 @@ static int load_target(void *context, uint8_t target, char error[256]) {
     log_line(s, "Area save prompt loaded with retained actors");
     return 1;
   }
-  if (target == 0x68 && !s->game && !s->retry) {
+  if (target == BK_FLOW_RETRY && !s->game && !s->retry) {
     BkPauseBindings bindings = {&s->common, &s->flow, &s->cursor, &s->overlay,
                                 &s->hover};
     BkFlowTransitionOps ops = {s, release};
@@ -388,21 +389,21 @@ static int load_target(void *context, uint8_t target, char error[256]) {
     log_line(s, "Retry menu loaded after failure");
     return 1;
   }
-  if (target == 1 && !s->title) {
+  if (target == BK_FLOW_TITLE && !s->title) {
     s->title = bk_scene_create(BK_SCENE_TITLE_PREVIEW, &s->services, error);
     if (!s->title)
       return 0;
     log_line(s, "Scene switched: title (retained process state)");
     return 1;
   }
-  if (target == 2 && !s->game) {
+  if (target == BK_FLOW_GAME && !s->game) {
     /* The explicit development factory still supports its direct entry.
      * The normal application reaches here from the real dialogue flow8. */
     uint8_t previous =
-        !s->front && s->flow.previous == 1 ? 8 : s->flow.previous;
+        !s->front && s->flow.previous == BK_FLOW_TITLE ? BK_FLOW_DIALOGUE : s->flow.previous;
     /*4bf268 clears all eight native bytes on a new entry; the five active
      * item bytes are reset by the actor layer, and these three remain here. */
-    if (previous == 8 || previous == 0x38)
+    if (previous == BK_FLOW_DIALOGUE || previous == BK_FLOW_SELECTION)
       memset(s->inventory_tail, 0, sizeof(s->inventory_tail));
     s->game = bk_game_preview_create_entry(
         &s->services, &s->game_state, &s->progress, s->game_state.group,
@@ -431,7 +432,7 @@ static int prepare_common(PlaySession *s, float seconds, char error[256]) {
   }
   s->common_frame.curtain_alpha = preview.alpha;
   return bk_curtain_render_prepare(s->curtain, &s->common_frame,
-                                   s->viewport.width, s->viewport.height,
+                                   BK_UI_WIDTH, BK_UI_HEIGHT,
                                    error);
 }
 static int resize(void *context, unsigned width, unsigned height,
@@ -469,14 +470,14 @@ static int step(void *context, double seconds, const BkInput *input,
    * The process screenshot reads this live latch only when it is written. */
   s->game_state.album_group = s->game_state.group;
   switch (s->shown) {
-  case 2:
+  case BK_FLOW_GAME:
     bk_game_preview_clock(s->game, s->elapsed - seconds);
     bk_game_preview_block(s->game, s->common.blocked);
     if (!s->game || !bk_scene_step(s->game, seconds, input, error) ||
         !prepare_common(s, (float)seconds, error))
       return 0;
     break;
-  case 0x40: {
+  case BK_FLOW_FAILURE: {
     BkFailureHudFrame frame;
     BkFailureHudOps ops = {
         .context = s, .release = release, .schedule = schedule};
@@ -487,27 +488,27 @@ static int step(void *context, double seconds, const BkInput *input,
       return 0;
     s->common_frame.curtain_alpha = frame.curtain_alpha;
     if (!bk_curtain_render_prepare(s->curtain, &s->common_frame,
-                                   s->viewport.width, s->viewport.height,
+                                   BK_UI_WIDTH, BK_UI_HEIGHT,
                                    error))
       return 0;
     break;
   }
-  case 0x20:
+  case BK_FLOW_CHECKPOINT:
     bk_retry_preview_clock(s->checkpoint, s->elapsed - seconds);
     if (!s->checkpoint || !bk_scene_step(s->checkpoint, seconds, input, error))
       return 0;
     break;
-  case 0x28:
+  case BK_FLOW_SAVE:
     bk_save_preview_clock(s->save, s->elapsed - seconds);
     if (!s->save || !bk_scene_step(s->save, seconds, input, error))
       return 0;
     break;
-  case 0x68:
+  case BK_FLOW_RETRY:
     bk_retry_preview_clock(s->retry, s->elapsed - seconds);
     if (!s->retry || !bk_scene_step(s->retry, seconds, input, error))
       return 0;
     break;
-  case 0x10:
+  case BK_FLOW_ENDING:
     /* The loader prepared the first ending snapshot during flow50. Present
      * it through the normal app draw/after_present boundary before asking
      * the scene for another update. */
@@ -517,32 +518,30 @@ static int step(void *context, double seconds, const BkInput *input,
                                           input, error)))
       return 0;
     break;
-  case 4:
+  case BK_FLOW_PAUSE:
     bk_pause_preview_clock(s->pause, s->elapsed - seconds);
     if (!s->pause || !s->game ||
         !bk_game_preview_background_step(s->game, seconds, s->elapsed, error) ||
         !bk_scene_step(s->pause, seconds, input, error))
       return 0;
     break;
-  case 0x50: {
+  case BK_FLOW_LOADING: {
     BkFlowLoadingFrame frame;
     BkFlowLoadingOps ops = {s, load_target, confirm};
     if (!bk_flow_loading_step(&s->loading, &s->common, &s->flow, 0,
                               !!(input->pressed & BK_BUTTON_CONFIRM),
                               (float)seconds, &ops, &frame, error) ||
         !bk_flow_loading_render_prepare(s->loading_render, &frame,
-                                        s->viewport.width, s->viewport.height,
+                                        BK_UI_WIDTH, BK_UI_HEIGHT,
                                         error))
       return 0;
     break;
   }
-  case 1:
-  case 0x38:
-  case 8:
-  case 0x18:
-  case 0x48:
-  case 0x30:
-  case 0x60:
+  default:
+    if (!bk_flow_is_front_end(s->shown)) {
+      snprintf(error, 256, "play session: unbound active flow0x%02x", s->shown);
+      return 0;
+    }
     if (s->front) {
       if (!bk_front_end_step(s->front, seconds, s->elapsed, input, error))
         return 0;
@@ -550,12 +549,9 @@ static int step(void *context, double seconds, const BkInput *input,
     }
     if (!s->title || !bk_scene_step(s->title, seconds, input, error))
       return 0;
-    if ((input->pressed & BK_BUTTON_CONFIRM) && !schedule(s, 2, 1, error))
+    if ((input->pressed & BK_BUTTON_CONFIRM) && !schedule(s, BK_FLOW_GAME, 1, error))
       return 0;
     break;
-  default:
-    snprintf(error, 256, "play session: unbound active flow0x%02x", s->shown);
-    return 0;
   }
   s->pending_seconds = (float)seconds;
   s->pending = 1;
@@ -612,32 +608,32 @@ static int draw(void *context, const BkSceneFrame *frame, char error[256]) {
     snprintf(error, 256, "play session: invalid drawable viewport");
     return 0;
   }
-  if (s->shown == 2 || s->shown == 0x40) {
+  if (s->shown == BK_FLOW_GAME || s->shown == BK_FLOW_FAILURE) {
     if (!bk_scene_draw(s->game, frame, error) ||
         !bk_renderer_viewport(s->services.renderer, &s->viewport, error) ||
         !bk_curtain_render_draw(s->curtain, error) ||
         !bk_renderer_viewport(s->services.renderer, NULL, error))
       return 0;
-  } else if (s->shown == 4) {
+  } else if (s->shown == BK_FLOW_PAUSE) {
     if (!bk_scene_draw(s->pause, frame, error))
       return 0;
-  } else if (s->shown == 0x20) {
+  } else if (s->shown == BK_FLOW_CHECKPOINT) {
     if (!bk_scene_draw(s->checkpoint, frame, error))
       return 0;
-  } else if (s->shown == 0x28) {
+  } else if (s->shown == BK_FLOW_SAVE) {
     if (!bk_scene_draw(s->save, frame, error))
       return 0;
-  } else if (s->shown == 0x68) {
+  } else if (s->shown == BK_FLOW_RETRY) {
     if (!bk_scene_draw(s->retry, frame, error))
       return 0;
-  } else if (s->shown == 0x10) {
+  } else if (s->shown == BK_FLOW_ENDING) {
     if (!bk_scene_draw(s->ending, frame, error))
       return 0;
-  } else if (s->shown == 1 || s->shown == 0x38 || s->shown == 8 || s->shown == 0x18 || s->shown == 0x48 || s->shown == 0x30 || s->shown == 0x60) {
+  } else if (bk_flow_is_front_end(s->shown)) {
     if (!(s->front ? bk_front_end_draw(s->front, error)
                    : bk_scene_draw(s->title, frame, error)))
       return 0;
-  } else if (s->shown == 0x50) {
+  } else if (s->shown == BK_FLOW_LOADING) {
     if (!bk_renderer_viewport(s->services.renderer, &s->viewport, error) ||
         !bk_flow_loading_render_draw(s->loading_render, error) ||
         !bk_renderer_viewport(s->services.renderer, NULL, error))
@@ -657,10 +653,10 @@ int bk_play_session_after_present(BkScene *scene, char error[256]) {
   }
   if (!s->pending)
     return 1;
-  if (s->front && (s->shown == 1 || s->shown == 0x38 || s->shown == 8 || s->shown == 0x18 || s->shown == 0x48 || s->shown == 0x30 || s->shown == 0x60) &&
+  if (s->front && bk_flow_is_front_end(s->shown) &&
       !bk_front_end_after_present(s->front, error))
     return 0;
-  if (s->shown == 2) {
+  if (s->shown == BK_FLOW_GAME) {
     BkCommonHudBindings bindings = {&s->game_state.interaction.outcome,
                                     &s->game_state.hotkeys.menu_request,
                                     &s->game_state.interaction.response,
@@ -679,13 +675,13 @@ int bk_play_session_after_present(BkScene *scene, char error[256]) {
       snprintf(error, 256, "play session: curtain preview/commit mismatch");
       return 0;
     }
-    if (s->flow.current == 4)
+    if (s->flow.current == BK_FLOW_PAUSE)
       log_line(s, "Game paused after HUD capture");
-  } else if (s->shown == 4 && s->flow.current != 4) {
+  } else if (s->shown == BK_FLOW_PAUSE && s->flow.current != BK_FLOW_PAUSE) {
     s->retire_pause = 1;
-    if (s->flow.current == 2)
+    if (s->flow.current == BK_FLOW_GAME)
       log_line(s, "Game resumed with retained session");
-  } else if (s->shown == 0x10) {
+  } else if (s->shown == BK_FLOW_ENDING) {
     if (!bk_ending_normal_scene_after_present(s->ending, error))
       return 0;
     s->ending_first_present = 0;
@@ -749,8 +745,8 @@ static BkScene *create(const BkSceneServices *services,
   if (!bk_camera_fit(&s->viewport, width, height, 4, 3) ||
       !bk_scene_game_frame_boot_state(&s->game_state, &s->progress,
                                       (uint32_t)time(NULL)) ||
-      !bk_menu_cursor_initialize(&s->cursor, s->viewport.width,
-                                 s->viewport.height))
+      !bk_menu_cursor_initialize(&s->cursor, BK_UI_WIDTH,
+                                 BK_UI_HEIGHT))
     goto bad;
   bk_common_hud_initialize(&s->common);
   if (services->capture_files) {
@@ -869,5 +865,5 @@ const BkFlowTransition *bk_play_session_flow(BkScene *scene) {
 
 int bk_play_session_finished(BkScene *scene) {
   PlaySession *s = bk_scene_custom_context(scene);
-  return s && !s->pending && s->flow.current == 0x58;
+  return s && !s->pending && s->flow.current == BK_FLOW_EXIT;
 }

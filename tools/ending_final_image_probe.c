@@ -3,7 +3,7 @@
  * ownership, image loading, fade/timer, input and drawing use production.
  * A separate explicit callback handoff checks retained background/light
  * values after the old 3D objects have died; it is not a natural exit path.
- * The real action7 currently reaches the unimplemented4D1025 and must fail.
+ * The real action7 must enter4D1025 while retaining the final UI snapshot.
  */
 #include "../runtime/scene/ending_normal_session.c"
 #include "ending_ui_render_oracle.h"
@@ -12,7 +12,7 @@
 typedef struct { uint64_t submitted, consumed, hash; } ImageSink;
 typedef struct {
   unsigned entries, frames, transitions, redraws, samples, max_error;
-  unsigned clicks, timeouts, restored, rejected, terminal, pointer_frames;
+  unsigned clicks, timeouts, restored, rejected, selected_entries, pointer_frames;
   unsigned missing_images, corrupt_images;
   uint64_t initial_skin_dispatches;
   uint64_t state, pcm, pixels;
@@ -140,7 +140,10 @@ static int image_pixels(EndingNormalScene *s, ImageResult *result, uint8_t *pixe
       }
       if ((x - v->x) % 7 || (y - v->y) % 7) continue;
       int expected_rgb[3] = {0};
-      if (!expected_over(images, &s->ui_frame.sprites, x - v->x, y - v->y, expected_rgb)) continue;
+      /* Invert the physical pixel center and the UI projection's half-texel. */
+      double logical_x = ((double)(x - v->x) + .5) * BK_UI_WIDTH / v->width - .5;
+      double logical_y = ((double)(y - v->y) + .5) * BK_UI_HEIGHT / v->height - .5;
+      if (!expected_over(images, &s->ui_frame.sprites, logical_x, logical_y, expected_rgb)) continue;
       for (unsigned c = 0; c < 3; ++c) {
         unsigned error = (unsigned)abs((int)p[c] - expected_rgb[c]);
         if (error > result->max_error) result->max_error = error;
@@ -247,7 +250,8 @@ static int image_profile(BkRenderer *renderer, BkResourceStore *store, unsigned 
          !s->snapshot_ui_only && s->retained_background == background && s->has_retained_lights);
   VERIFY(s->audio == audio_owner && s->ui_render == base_ui && s->ui_batch == batch);
   VERIFY(s->stage_ui.loaded == (1u << 12) &&
-         !memcmp(s->stage_ui.sprites[11].rect, (float[4]){0, 0, 960, 720}, 16));
+         !memcmp(s->stage_ui.sprites[11].rect,
+                 (float[4]){0, 0, BK_UI_WIDTH, BK_UI_HEIGHT}, 16));
   BkRetainedLightState saved = s->retained_lights, actual;
   const BkEndingBackgroundData *data = bk_ending_background_assets_data(background);
   VERIFY(data && bk_ending_normal_render_save_lighting(old_render, data->model, &actual, e));
@@ -319,7 +323,7 @@ static int image_profile(BkRenderer *renderer, BkResourceStore *store, unsigned 
   ++out->restored;
 
   /*A second actual transition, then original click/timer exit request.
-   * Do not set finish_elapsed or substitute an available loader for4D1025.*/
+   * Do not set finish_elapsed or bypass the real4D1025 handoff.*/
   s->common->action = 0x4a;
   s->common->blocked = 1;
   transition_frames = 0;
@@ -347,15 +351,22 @@ static int image_profile(BkRenderer *renderer, BkResourceStore *store, unsigned 
   VERIFY(s->common->action == 7 && s->common->blocked == 1 &&
          !s->state->frame.finish_elapsed && !s->state->frame.previous_clock);
   VERIFY(image_redraw(scene, s, out, pixels, redraw, bytes, e));
-  /*No further implementation is claimed: reach and inspect the real missing
-   * loader failure after the curtain, rather than silently staying on image.*/
+  /*4D1025 now owns the selected stage. Its first frame still presents the
+   * final-image snapshot; only the following update captures the new3D.*/
   unsigned exit_frames = 0;
-  int accepted = 1;
-  while (accepted && exit_frames++ < 240)
-    accepted = image_tick(scene, s, &input, s->wall_seconds + 1.0 / 60, out, e);
-  VERIFY(!accepted && s->failed && strstr(e, "does not own this ending loader"));
-  ++out->terminal;
-  *e = 0;
+  while (!s->selected_assets && exit_frames++ < 240)
+    VERIFY(image_tick(scene, s, &input, s->wall_seconds + 1.0 / 60, out, e));
+  VERIFY(s->selected_assets && s->render && !s->failed && !s->final_image &&
+         s->snapshot_ui_only && !s->snapshot_render &&
+         s->state->frame.phase == (source == 3 ? 6 : 5) &&
+         s->state->auxiliary.gate == 4 && !s->common->action &&
+         !s->common->blocked && !s->retained_background && !s->has_retained_lights);
+  VERIFY(s->audio == audio_owner && s->ui_render == base_ui && s->ui_batch == batch);
+  VERIFY(image_redraw(scene, s, out, pixels, redraw, bytes, e));
+  for (unsigned i = 0; i < 8; ++i)
+    VERIFY(image_tick(scene, s, &input, s->wall_seconds + 1.0 / 60, out, e));
+  VERIFY(!s->snapshot_ui_only && s->snapshot_render == s->render);
+  ++out->selected_entries;
   out->state = image_hash(out->state, &s->state->frame, sizeof(s->state->frame));
   out->pcm = image_hash(out->pcm, &sink.hash, sizeof(sink.hash));
   ++out->entries;
@@ -378,7 +389,7 @@ static int image_resource_failure(BkRenderer *renderer, BkResourceStore *store,
   BkResourceStore *fault = NULL;
   BkEndingRecords *records = calloc(1, sizeof(*records));
   FILE *file = NULL;
-  char directory[] = "local/ending-image-fault-XXXXXX", path[1024] = {0};
+  char directory[] = "/tmp/bk-ending-image-fault-XXXXXX", path[1024] = {0};
   ImageSink sink = {.hash = UINT64_C(14695981039346656037)};
   BkAudioSink output = {&sink, 48000, 480, 1920, image_submit, image_poll};
   BkInput input = {0};
@@ -465,7 +476,8 @@ int main(int argc, char **argv) {
   BkResourceStore *store = bk_resources_create(e);
   if (!renderer || !store) goto done;
   const char *packs[] = {"bk3_00", "bk3_02", "bk3_03", "bk3_04", "bk3_06",
-                        "bk3_08", "bk3_09", "bk3_11", "bk3_18", "fambom"};
+                        "bk3_08", "bk3_09", "bk3_10", "bk3_11", "bk3_13",
+                        "bk3_18", "fambom"};
   for (unsigned i = 0; i < sizeof(packs) / sizeof(*packs); ++i)
     if (snprintf(path, sizeof(path), "%s/%s.pp", argv[1], packs[i]) >= (int)sizeof(path) ||
         !bk_resources_mount(store, packs[i], path, e)) goto done;
@@ -491,18 +503,18 @@ int main(int argc, char **argv) {
       }
     }
   if (result.entries != (last - first) * (source_last - source_first) ||
-      result.restored != result.entries || result.terminal != result.entries ||
+      result.restored != result.entries || result.selected_entries != result.entries ||
       result.missing_images != source_last - source_first ||
       result.corrupt_images != source_last - source_first ||
       result.samples < result.entries * 1000u) {
     fail(e, "missing final-image lifecycle coverage"); goto done;
   }
-  printf("PASS final image entries%u frames%u transition%u redraw%u samples%u max%u pointer%u click%u timeout%u restore%u initial-skin%llu rejects%u missing%u corrupt%u pending-loader%u state=%016llx pcm=%016llx pixels=%016llx\n",
+  printf("PASS final image entries%u frames%u transition%u redraw%u samples%u max%u pointer%u click%u timeout%u restore%u initial-skin%llu rejects%u missing%u corrupt%u selected-entry%u state=%016llx pcm=%016llx pixels=%016llx\n",
       result.entries, result.frames, result.transitions, result.redraws, result.samples,
       result.max_error, result.pointer_frames, result.clicks, result.timeouts,
       result.restored, (unsigned long long)result.initial_skin_dispatches, result.rejected,
       result.missing_images, result.corrupt_images,
-      result.terminal, (unsigned long long)result.state,
+      result.selected_entries, (unsigned long long)result.state,
       (unsigned long long)result.pcm, (unsigned long long)result.pixels);
   rc = 0;
 done:

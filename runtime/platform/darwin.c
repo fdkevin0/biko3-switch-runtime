@@ -1,4 +1,5 @@
 #include "platform/platform.h"
+#include "platform/sdl_input.h"
 #include "platform/darwin_menu.h"
 #include "core/settings.h"
 #include "render/window_surface.h"
@@ -120,23 +121,6 @@ static int create_surface(void *userdata, void *instance, void **surface,
   *surface = (void *)native;
   return 1;
 }
-
-/* SDL mouse events and SDL_GetMouseState report window coordinates (points
- * on Retina displays), while the game's viewport/pointer space is the
- * renderer extent in pixels. Scale through the current logical window size so
- * a 2x display does not halve the pointer's reachable area. */
-static void pointer_scale(const BkPlatform *p, float *sx, float *sy) {
-  int logical_w = 0, logical_h = 0;
-  *sx = 1.0f;
-  *sy = 1.0f;
-  if (!p || !p->window ||
-      !SDL_GetWindowSize(p->window, &logical_w, &logical_h) ||
-      logical_w <= 0 || logical_h <= 0)
-    return;
-  *sx = (float)p->width / (float)logical_w;
-  *sy = (float)p->height / (float)logical_h;
-}
-
 static void add_gamepad(BkPlatform *p, SDL_JoystickID id) {
   if (!SDL_IsGamepad(id) || p->pad_count >= 4)
     return;
@@ -212,17 +196,6 @@ static uint32_t gamepad_buttons(SDL_Gamepad *pad) {
     result |= BK_BUTTON_CAMERA_ADJUST;
   return result;
 }
-
-static float axis_value(SDL_Gamepad *pad, SDL_GamepadAxis axis) {
-  Sint16 value = SDL_GetGamepadAxis(pad, axis);
-  float f = (float)value / 32768.0f;
-  if (f < -.12f)
-    return (f + .12f) / .88f;
-  if (f > .12f)
-    return (f - .12f) / .88f;
-  return 0;
-}
-
 static void save_window_settings(BkPlatform *p);
 static void toggle_fullscreen(BkPlatform *p);
 
@@ -394,7 +367,7 @@ static void poll_events(BkPlatform *p) {
       break;
     case SDL_EVENT_MOUSE_MOTION: {
       float sx, sy;
-      pointer_scale(p, &sx, &sy);
+      bk_sdl_pointer_scale(p->window, p->width, p->height, &sx, &sy);
       p->mouse_x = event.motion.x * sx;
       p->mouse_y = event.motion.y * sy;
       p->mouse_moved = 1;
@@ -574,6 +547,11 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
       !make_directory(save, error))
     goto failed;
 
+  char settings_error[256] = {0};
+  if (!bk_settings_load(&p->settings, p->root, settings_error)) {
+    bk_settings_defaults(&p->settings);
+    fprintf(stderr, "Settings: %s; using defaults\n", settings_error);
+  }
   const char *game = (argc > 1 && argv[1] && argv[1][0] != '-') ? argv[1]
                                                                  : getenv("BIKO3_GAME");
   int explicit_game = game && *game;
@@ -602,11 +580,6 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
       goto failed;
   }
 
-  char settings_error[256] = {0};
-  if (!bk_settings_load(&p->settings, p->root, settings_error)) {
-    bk_settings_defaults(&p->settings);
-    fprintf(stderr, "Settings: %s; using defaults\n", settings_error);
-  }
   if (getenv("BIKO3_WINDOWED")) {
     p->settings.windowed = 1;
     p->window_override = 1;
@@ -796,10 +769,10 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
   for (unsigned i = 0; i < p->pad_count; ++i) {
     SDL_Gamepad *pad = p->pads[i];
     held |= gamepad_buttons(pad);
-    float lx = axis_value(pad, SDL_GAMEPAD_AXIS_LEFTX);
-    float ly = -axis_value(pad, SDL_GAMEPAD_AXIS_LEFTY);
-    float rx = axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTX);
-    float ry = -axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTY);
+    float lx = bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_LEFTX);
+    float ly = -bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_LEFTY);
+    float rx = bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTX);
+    float ry = -bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTY);
     if (p->settings.invert_look)
       ry = -ry;
     if (fabsf(lx) + fabsf(ly) > fabsf(move_x) + fabsf(move_y)) {
@@ -817,7 +790,7 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
   float mx = 0, my = 0;
   SDL_MouseButtonFlags mouse = SDL_GetMouseState(&mx, &my);
   float sx, sy;
-  pointer_scale(p, &sx, &sy);
+  bk_sdl_pointer_scale(p->window, p->width, p->height, &sx, &sy);
   if (mouse & (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK)) {
     p->mouse_x = mx * sx;
     p->mouse_y = my * sy;
@@ -975,7 +948,7 @@ void bk_platform_report_error(BkPlatform *p, const char *error) {
 }
 
 static void save_window_settings(BkPlatform *p) {
-  if (!p || !p->root[0] || p->window_override)
+  if (!p || !p->window || !p->root[0] || p->window_override)
     return;
   BkSettings settings;
   char error[256] = {0};

@@ -19,8 +19,8 @@ void bk_text_render_destroy(BkTextRender *);
 /* CPU and earlier GPU updates remain applied on a GPU failure; terminate
  * that frame. Caller owns the global flow state and notice visibility policy.
  * Prepare does not decide when a notice is visible or poll its timer.
- * width/height describe the active drawing viewport, allowing a centered
- * 4:3 game view on a widescreen target. Caller sets that viewport for draw. */
+ * width/height describe the logical canvas; the caller sets the physical
+ * 4:3 viewport for draw. */
 int bk_text_render_prepare(BkTextRender *, const BkTextStyle *,
                            const uint8_t *text, size_t size, float seconds,
                            unsigned width, unsigned height, BkTextFlow *,

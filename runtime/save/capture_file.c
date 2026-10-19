@@ -1,5 +1,5 @@
 #include "save/capture_file.h"
-#include "save/file_replace_internal.h"
+#include "core/file.h"
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
@@ -171,7 +171,7 @@ int bk_capture_file_write(BkCaptureFiles *f, int photo, const char *name,
     snprintf(e, 256, "capture files: write failed");
     return 0;
   }
-  if (!bk_save_file_replace(tmp, path, e)) {
+  if (!bk_file_replace(tmp, path, e)) {
     remove(tmp);
     return 0;
   }
@@ -225,7 +225,7 @@ BkResourceResult bk_capture_file_read_pause(BkCaptureFiles *f, size_t limit,
     snprintf(e, 256, "capture files: pause path too long");
     return BK_RESOURCE_ERROR;
   }
-  if (!bk_save_file_recover(path, e))
+  if (!bk_file_recover(path, e))
     return BK_RESOURCE_ERROR;
   return read_image_file(path,limit,out,e);
 }
@@ -251,7 +251,7 @@ int bk_capture_file_remove_pause(BkCaptureFiles *f, char e[256]) {
     snprintf(e, 256, "capture files: remove pause: %s", strerror(errno));
     return 0;
   }
-  return bk_save_file_commit(path, e);
+  return bk_file_commit(path, e);
 }
 
 static int photo_path(BkCaptureFiles *f,const char *name,char path[1288],char e[256]) {
@@ -267,14 +267,14 @@ BkResourceResult bk_capture_file_read_photo(BkCaptureFiles *f,const char *name,
   if (!limit || !out || out->data || out->size) {
     snprintf(e,256,"capture files: invalid photo read/output/limit");return BK_RESOURCE_ERROR;
   }
-  if (!photo_path(f,name,path,e) || !bk_save_file_recover(path,e))return BK_RESOURCE_ERROR;
+  if (!photo_path(f,name,path,e) || !bk_file_recover(path,e))return BK_RESOURCE_ERROR;
   return read_image_file(path,limit,out,e);
 }
 int bk_capture_file_remove_photo(BkCaptureFiles *f,const char *name,char e[256]) {
   char path[1288];
-  if (!photo_path(f,name,path,e) || !bk_save_file_recover(path,e))return 0;
+  if (!photo_path(f,name,path,e) || !bk_file_recover(path,e))return 0;
   if (unlink(path) && errno!=ENOENT) {
     snprintf(e,256,"capture files: remove photo: %s",strerror(errno));return 0;
   }
-  return bk_save_file_commit(path,e);
+  return bk_file_commit(path,e);
 }

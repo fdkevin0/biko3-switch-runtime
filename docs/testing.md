@@ -67,6 +67,8 @@ ASan/UBSan 使用完整默认构建，避免手写目标清单漏掉新注册的
 
 合成纹理更新、GPU 传输、局部深度清除和共享角色视图探针均已注册为 `vulkan-*` CTest，与其他 GPU 单测一起执行。
 
+`ui-canvas` 检查逻辑画布及留边输入映射；原生桌面配置另有 `sdl-input` 和 macOS `platform-settings`，用确定性设备桩检查 HiDPI、轴归一化与真实启动配置顺序。真实资源的 `front-flow-probe`、`screenshot-probe`、`ending-draw-event-probe` 覆盖缩放、零步重绘和跨帧截图；这些检查不替代原生窗口或实机验收。范围和负对照见[引擎边界修复](../reports/engine-boundaries-2026-10-19.json)。
+
 ## 记录结果
 
 | 证据 | 可以说明什么 |

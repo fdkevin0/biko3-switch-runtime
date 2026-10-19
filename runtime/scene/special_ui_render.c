@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/special_ui_render.h"
 #include <math.h>
 #include <stdlib.h>
@@ -70,8 +71,7 @@ int bk_special_ui_render_prepare(BkSpecialUiRender *r, const BkSpecialUiFrame *f
       f->sprites.count > BK_ENDING_UI_DRAWS || !isfinite(f->curtain.curtain_alpha) ||
       f->curtain.curtain_alpha < 0 || f->curtain.curtain_alpha > 1)
     return fail(e, "invalid frame or no begin");
-  unsigned w, h; bk_renderer_extent(r->renderer, &w, &h);
-  if (width > w || height > h) return fail(e, "viewport exceeds target");
+  if (!bk_ui_extent(width, height)) return fail(e, "invalid logical extent");
   for (unsigned i = 0; i < f->sprites.count; ++i) {
     const BkEndingUiDraw *d = &f->sprites.draws[i];
     if (d->slot >= BK_SPECIAL_UI_SPRITES || !r->snapshot[d->slot] ||

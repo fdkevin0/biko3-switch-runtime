@@ -314,6 +314,18 @@ static int special_event(void *p, BkEndingSpecialRenderEvent event,
   s->stage++;
   return 1;
 }
+static int valid_viewports(const BkEndingNormalRender *r,
+                            const BkViewport viewports[2], char e[256]) {
+  unsigned width, height;
+  bk_renderer_extent(r->renderer, &width, &height);
+  for (unsigned i = 0; i < 2; ++i) {
+    const BkViewport *v = viewports + i;
+    if (!v->width || !v->height || v->x > width || v->y > height ||
+        v->width > width - v->x || v->height > height - v->y)
+      return fail(e, "invalid stored viewport");
+  }
+  return 1;
+}
 int bk_ending_normal_render_prepare_special(
     BkEndingNormalRender *r, const BkEndingSpecialRenderInput *in,
     char e[256]) {
@@ -323,13 +335,9 @@ int bk_ending_normal_render_prepare_special(
   if (!r->secondary || !in)
     return fail(e, "special view storage unavailable");
   r->secondary->ready = 0;
-  unsigned width, height;
-  bk_renderer_extent(r->renderer, &width, &height);
   const BkViewport vp[] = {in->main_viewport, in->special_viewport};
-  for (unsigned i = 0; i < 2; i++)
-    if (!vp[i].width || !vp[i].height || vp[i].x > width || vp[i].y > height ||
-        vp[i].width > width - vp[i].x || vp[i].height > height - vp[i].y)
-      return fail(e, "invalid stored viewport");
+  if (!valid_viewports(r, vp, e))
+    return 0;
   SpecialPrepare p = {r, in, 0};
   BkEndingSpecialScene scene = {r->forest,
                                 in->camera,
@@ -993,6 +1001,20 @@ int bk_ending_normal_render_prepare_event(BkEndingNormalRender *r,
       r->secondary->ready = 0;
     return 0;
   }
+  return 1;
+}
+int bk_ending_normal_render_set_viewports(BkEndingNormalRender *r,
+    const BkViewport *main, const BkViewport *special, char e[256]) {
+  if (!r || !r->ready)
+    return fail(e, "missing prepared frame");
+  if (!r->special_ready)
+    return 1;
+  if (!main || !special)
+    return fail(e, "missing dual-view viewport");
+  const BkViewport viewports[] = {*main, *special};
+  if (!valid_viewports(r, viewports, e))
+    return 0;
+  memcpy(r->viewports, viewports, sizeof(viewports));
   return 1;
 }
 int bk_ending_normal_render_draw(BkEndingNormalRender *r, char e[256]) {

@@ -21,7 +21,8 @@ void bk_ending_ui_render_destroy(BkEndingUiRender *);
  * one reference; final release must remain outside the active GPU frame. */
 BkEndingUiRender *bk_ending_ui_render_retain(BkEndingUiRender *);
 /* Snapshots can contain multiple DIFFERENT draws of the same sprite slot.
- * Does not advance animation; caller supplies and sets logical viewport. */
+ * Does not advance animation; width/height describe the logical canvas.
+ * Caller sets the physical viewport. */
 int bk_ending_ui_render_prepare(BkEndingUiRender *, const BkEndingUiFrame *,
                                 unsigned width, unsigned height,
                                 char error[256]);

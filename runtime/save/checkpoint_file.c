@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "save/checkpoint_file.h"
-#include "save/file_replace_internal.h"
+#include "core/file.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,7 +50,7 @@ BkResourceResult bk_checkpoint_file_read(BkCheckpointFiles *f, unsigned group,
   }
   char p[1100];
   path(f, group, p);
-  if (!bk_save_file_recover(p, e))
+  if (!bk_file_recover(p, e))
     return BK_RESOURCE_ERROR;
   FILE *in = fopen(p, "rb");
   if (!in) {
@@ -103,7 +103,7 @@ int bk_checkpoint_file_store(BkCheckpointFiles *f, unsigned group,
     remove(tmp);
     return fail(e, "write/flush/close failed");
   }
-  if (!bk_save_file_replace(tmp, p, e)) {
+  if (!bk_file_replace(tmp, p, e)) {
     remove(tmp);
     return 0;
   }

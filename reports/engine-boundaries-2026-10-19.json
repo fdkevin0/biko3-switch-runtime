@@ -1,0 +1,218 @@
+{
+  "date": "2026-10-19",
+  "base_commit": "03038ca",
+  "scope": "修复引擎边界审计的八项问题；三名子代理并行实施、交叉审查，主代理整合。",
+  "changes": [
+    {
+      "audit_ids": [
+        1,
+        3,
+        5
+      ],
+      "area": "settings and storage",
+      "result": "macOS先加载设置再选择游戏目录，失败启动不写窗口偏好。拒绝整数溢出并支持整个路径字段；现有文件替换、备份恢复与提交实现下沉core/file，设置和存档共用。",
+      "regressions": [
+        "原实现记住目录仍触发选择器；新启动路径测试截断于Vulkan初始化之前，实际调用darwin.c。",
+        "旧设置测试接受溢出整数，长路径读回失败；no-replace fixture第二次保存失败。",
+        "新测试覆盖提交错误、备份恢复及选择器保留已有偏好。"
+      ]
+    },
+    {
+      "audit_ids": [
+        2
+      ],
+      "area": "UI canvas and resize",
+      "result": "UI使用固定1280x960逻辑画布，显示和输入映射在物理4:3视口边界完成。共享光标、布局和动画不随窗口变更重写；保留GPU物理视口校验和逻辑尺寸上限。",
+      "regressions": [
+        "旧pause preview/render链接到同一资源探针，缩至640x480失败：viewport exceeds target。",
+        "新资源流程覆盖标题独立bitmap采样、人物选择、对话、游戏、暂停多尺寸零步重绘、恢复和返回标题。",
+        "游戏雨片继续使用原有物理像素标定。"
+      ]
+    },
+    {
+      "audit_ids": [
+        4,
+        6
+      ],
+      "area": "desktop input",
+      "result": "macOS和Linux共享SDL逻辑窗口点到drawable像素映射与signed16轴归一化；取消平台额外0.12死区，保留指针0.18及游戏移动/镜头校准。",
+      "regressions": [
+        "旧Linux的2x映射得到1而非2；旧SDL预处理不等于Switch的原始轴契约。",
+        "穷举65536个轴值，并覆盖HiDPI、窗口重查询、留边及查询失败。"
+      ]
+    },
+    {
+      "audit_ids": [
+        7
+      ],
+      "area": "flow dispatch",
+      "result": "命名16个原版流程编号且保留uint8字段布局；load/stop/step/draw/after-present共用一处前端归属判断。保留末帧呈现之后退役的顺序。",
+      "regressions": [
+        "CPU测试枚举全部256个流程字节的前端归属。",
+        "独立子代理复核数值、未知流程拒绝及资源退役顺序。"
+      ]
+    },
+    {
+      "audit_ids": [
+        8
+      ],
+      "area": "ending actor bindings",
+      "result": "每次阶段背景完成注册后，一次绑定六种逻辑角色到pose/registry/root；释放时清空活跃绑定，末帧仍借用retired资产。",
+      "regressions": [
+        "70组真实资源组合核对角色、registry/root及释放清空。",
+        "5组阶段切换验证新旧角色owner隔离及零步重绘。"
+      ]
+    },
+    {
+      "area": "additional resize bugs found during integration",
+      "result": "截图缓冲刷新当前drawable尺寸；显式follow_viewport策略使跨帧pending内容截图重算当前4:3裁切，固定crop保持原语义。结局双视图在draw边界重定位活跃或退役快照，不重新prepare。",
+      "regressions": [
+        "关闭crop跟随的负对照：configure→resize→flush失败capture crop exceeds resized target。",
+        "旧双视图64x48→32x24后零步draw失败；新用例覆盖缩小、宽屏、奇数竖窗、恢复及非法视口原子拒绝。"
+      ]
+    }
+  ],
+  "removals_and_preserved_coverage": [
+    "bk_selection_ui_resize和bk_selection_session_resize在统一画布后已无生产调用；删除两API及专属ratio测试。原版CPU行为测试保留，并由公共画布和真实资源缩放回归覆盖新接口。",
+    "save/file_replace.c及两个旧头的实现迁移到core/file；全仓调用和CMake直接编译清单更新，不保留仅转发的旧接口。",
+    "final-image探针的“4D1025未实现”断言与已实现loader及既有报告矛盾；补挂所需资源后验证真实selected交接、末帧与后续3D，保留缺失/损坏输入拒绝。",
+    "像素oracle仅将坐标参数改double并独立逆映射像素中心，误差阈值仍1；去掉半像素项的负对照确实失败。",
+    "原版流程值、存档XOR、两帧时钟、阴影排序/深度偏移、雨片标定及严格CPU入口未放宽。",
+    "自然输入驱动改用逻辑坐标后，相对运动也明确转换回drawable单位；原版速度门槛不变。group0往返的状态和PCM摘要与旧二进制逐字一致。",
+    "录制输入fixture仍穷举每个drawable像素，候选点逆映射后调用原picker；保留原搜索密度与所有自然流程断言，不扩展成400倍逻辑像素扫描。",
+    "自然录制规划器曾命中画外中心的可见圆边缘，warp与画布夹持额外产生-67纵向运动，无法满足低速手势。独立诊断后仅要求普通手势中心在画内；否则通过既有真实镜头输入移动目标。旧驱动60000帧失败，新驱动仅多30镜头帧并生成与旧版逐字相同的记录和解锁文件。生产夹持、warp、速度阈值和剧情状态未修改。"
+  ],
+  "checks": [
+    {
+      "check": "final complete offscreen host CTest",
+      "result": "128/128 passed (112 CPU +16 Vulkan)",
+      "log": "build/validation/engine-audit/ctest-final.log"
+    },
+    {
+      "check": "ASan/UBSan CPU CTest",
+      "result": "112/112 passed; detect_leaks=0",
+      "log": "build/validation/engine-audit/ctest-asan.log"
+    },
+    {
+      "check": "Python unittest discovery",
+      "result": "33/33 passed",
+      "log": "build/validation/engine-audit/python.log"
+    },
+    {
+      "check": "native input and startup settings",
+      "result": "2/2 passed",
+      "log": "build/validation/engine-audit/ctest-native.log"
+    },
+    {
+      "check": "macOS native Retina resize",
+      "result": "标题1920x1440→1280x960；人物选择1280x960→2000x1200，含1600x1200居中内容和实际点击；PNG目视确认完整。临时根目录仅/tmp。",
+      "log": "build/validation/engine-audit/native-resize.log"
+    },
+    {
+      "check": "original frontend flow with resize",
+      "result": "pointer及controller/native-clock通过；pointer另有ASan/UBSan；含暂停缩小/放大/留边、冻结重绘、恢复与再次截图。",
+      "logs": [
+        "build/agent-resize/green/probe.log",
+        "build/agent-resize/controller/probe.log",
+        "build/agent-resize/asan-front/probe.log"
+      ]
+    },
+    {
+      "check": "save/checkpoint/retry resource flows",
+      "result": "100保存/50读取；40区域边界夹具；自然失败→retry缩放→重开→再次失败→标题通过。",
+      "logs": [
+        "build/agent-resize/save-menu.log",
+        "build/agent-resize/area/probe.log",
+        "build/agent-resize/failure/probe.log"
+      ]
+    },
+    {
+      "check": "screenshot resize and output",
+      "result": "普通及ASan/UBSan通过；pending跨尺寸与固定crop、7464960 RGB字节、水印、11文件库存保持。",
+      "logs": [
+        "build/agent-resize/screenshot/probe.log",
+        "build/agent-resize/asan-screenshot/probe.log"
+      ]
+    },
+    {
+      "check": "ending role and stage lifecycle",
+      "result": "普通及ASan/UBSan：70资源组合；5组、20边界切换、10帘幕切换、1560帧、70零步重绘通过。",
+      "logs": [
+        "build/agent-bindings/role-bindings.log",
+        "build/agent-bindings/stage-reload.log"
+      ]
+    },
+    {
+      "check": "ending framing and final image",
+      "result": "普通及ASan/UBSan：镜头10案例19670帧；最终图片15入口10013帧622530独立RGB采样，最大误差1。状态/PCM/像素摘要一致。",
+      "logs": [
+        "build/agent-settings/framing-green-all.log",
+        "build/agent-settings/framing-asan-all.log",
+        "build/agent-settings/final-image-green-all.log",
+        "build/agent-settings/final-image-asan-all.log"
+      ]
+    },
+    {
+      "check": "ending dual-view resize",
+      "result": "普通及ASan/UBSan：10组合、540帧、240缩放重绘，活跃及retired快照均保持CPU/相机/指针/RNG/音频/视频不变；非法视口拒绝保持缓存。",
+      "logs": [
+        "build/agent-bindings/draw-event-resize-green.log",
+        "build/agent-bindings/asan-draw-event-resize-green.log"
+      ]
+    },
+    {
+      "check": "selected ending session",
+      "result": "70入口、60切换、40开场、39463帧、220重绘、40菜单/选择通过。",
+      "log": "build/validation/engine-audit/ending-selected.log"
+    },
+    {
+      "check": "ending optional node bindings and input",
+      "result": "20入口、9760帧、10实际点击/手势、10retirement通过；缺失可选节点6及特殊节点缺失4均覆盖。",
+      "log": "build/validation/engine-audit/ending-nodes.log"
+    },
+    {
+      "check": "native build",
+      "result": "build-macos/biko3重建成功；不覆盖.app交付包。",
+      "log": "build/validation/engine-audit/build-macos-final.log"
+    },
+    {
+      "check": "natural story reload input driver",
+      "result": "普通及ASan/UBSan：5组47587帧、10重载、30重绘、20手势、120冻结帧通过，全部PASS摘要一致；group0与旧二进制状态/PCM摘要完全一致。",
+      "logs": [
+        "build/agent-settings/story-green-all.log",
+        "build/agent-settings/story-asan-all.log"
+      ]
+    },
+    {
+      "check": "selected service adapters",
+      "result": "普通及ASan/UBSan：10入口52702帧，manual40、restarts10、flashes10、UV20、取消/重播/完成/auxiliary各10、拒绝50。state=0cbf9107a48cdd13，PCM=3c4be7cbc8c05cc6。",
+      "logs": [
+        "build/agent-settings/selected-motion-green-all.log",
+        "build/agent-settings/selected-motion-asan-all.log"
+      ]
+    },
+    {
+      "check": "natural record application producer",
+      "result": "group0/variant0普通及ASan/UBSan各22175帧；early11283帧、phases86/count8；实际selected输入、存储失败边界、保存、closing dialogue/unlock及返回标题通过。两版摘要一致；expected.bkr/records.bkr (600052字节) 和unlocks.bku (72字节) 与旧baseline逐字相同。record SHA256=a4d9e7503e6ad8481e7943f6760d1c2947fad7eb48be58975405356887d6ffd1。",
+      "logs": [
+        "build/agent-settings/record-natural-center.log",
+        "build/agent-settings/record-natural-center-asan.log",
+        "build/agent-settings/record-baseline.log"
+      ]
+    }
+  ],
+  "verification_notes": [
+    "沙箱默认GPU初始化返回VkResult -9；在获准访问本机Metal后，最终完整128项和各资源探针通过，不把设备不可访问算作渲染回归。",
+    "旧系统部署目标与本机Homebrew动态库最低版本不一致的链接警告仍存在；当前macOS构建运行通过，不声明旧系统兼容。",
+    "ASan/UBSan均关闭LeakSanitizer；GPU资源回基线断言仅说明被测资源生命周期。"
+  ],
+  "limits": [
+    "未做Switch交叉构建或实机验收；Linux只做源代码编译检查及共享输入测试，未做Linux桌面验收。",
+    "未做完整剧情、所有菜单点击或所有藏身点审核。特殊剧情跨帧截图覆盖公共owner回归，不是完整特殊剧情遍历。",
+    "未重新执行固定原版EXE的全部指令oracle；现有严格CPU入口保留。",
+    "未修改原版素材、EXE、密钥或已有玩家存档；未推送、未打包或覆盖交付包。",
+    "自然录制仅group0/variant0的produce配对；未重跑其它组、fresh-process natural-replay或共享fixture的第三/辅助类专用应用入口。"
+  ],
+  "remaining_blockers": [],
+  "git_commit": "Local commit requested after validation; no push."
+}

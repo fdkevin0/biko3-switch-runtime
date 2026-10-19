@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 /* Original title/selection/dialogue/game/pause/title application flow.
  * Only input and wall-clock replay; no game/UI state writes.
  */
@@ -88,9 +89,8 @@ static int title_resize(BkScene *scene, BkRenderer *renderer, BkAudio *audio,
       for (unsigned y = 7; y < 10; ++y)
         for (unsigned x = 1; x < 10; ++x) {
           unsigned px = view.width * x / 10, py = view.height * y / 10;
-          /* A zero-step redraw retains its prepared half-pixel offset. */
-          double lw = redraw ? view.width : old_view.width;
-          double lh = redraw ? view.height : old_view.height;
+          /* Both redraws project the same 1280x960 authored canvas. */
+          double lw = BK_UI_WIDTH, lh = BK_UI_HEIGHT;
           double u = ((px + .5) / view.width - .5 / lw) * image.width - .5;
           double v = ((py + .5) * lh / view.height - .5) /
                          (.75 * lw) * image.height - .5;
@@ -319,10 +319,23 @@ int main(int argc, char **argv) {
    */
   REQUIRE(present(scene, renderer, audio, error));
   REQUIRE(!memcmp(common, &common_held, sizeof(common_held)));
+  REQUIRE(bk_renderer_resize(renderer, 640, 480, error) &&
+          bk_scene_resize(scene, 640, 480, error));
+  REQUIRE(present(scene, renderer, audio, error));
+  REQUIRE(!memcmp(common, &common_held, sizeof(common_held)));
   unsigned pause_frames = 0;
   for (; pause_frames < 240 && bk_play_session_flow(scene)->current == 4;
        ++pause_frames) {
     BkInput input = {0};
+    if (pause_frames == 30 || pause_frames == 50 || pause_frames == 60) {
+      unsigned w = pause_frames == 50 ? 800 : 1600;
+      unsigned h = pause_frames == 50 ? 800 : 900;
+      BkCommonHudState frozen = *common;
+      REQUIRE(bk_renderer_resize(renderer, w, h, error) &&
+              bk_scene_resize(scene, w, h, error) &&
+              present(scene, renderer, audio, error));
+      REQUIRE(!memcmp(common, &frozen, sizeof(frozen)));
+    }
     if (pause_frames == 70 || pause_frames == 72)
       input.pressed = BK_BUTTON_DOWN;
     if (pause_frames == 74)
@@ -342,6 +355,12 @@ int main(int argc, char **argv) {
   REQUIRE(tick(scene, renderer, audio, (BkInput){.pressed = BK_BUTTON_PAUSE},
                error));
   REQUIRE(bk_play_session_flow(scene)->current == 4);
+  REQUIRE(bk_capture_file_read_pause(files, 16 * 1024 * 1024, &pause_bmp,
+                                     error) == BK_RESOURCE_OK);
+  REQUIRE(bk_image_decode(pause_bmp.data, pause_bmp.size, &pause_image, error));
+  REQUIRE(pause_image.width == 1200 && pause_image.height == 900);
+  bk_blob_free(&pause_bmp);
+  bk_image_free(&pause_image);
   unsigned title_frames = 0;
   int saw_loading = 0;
   for (; title_frames < 260 && bk_play_session_flow(scene)->current != 1;
@@ -368,6 +387,10 @@ int main(int argc, char **argv) {
   REQUIRE(bk_play_session_state(scene)->hotkeys.photos[target_group] == 2);
   for (unsigned i = 0; i < 150; i++)
     REQUIRE(tick(scene, renderer, audio, (BkInput){0}, error));
+  REQUIRE(bk_renderer_resize(renderer, 1280, 720, error) &&
+          bk_scene_resize(scene, 1280, 720, error) &&
+          tick(scene, renderer, audio, (BkInput){0}, error));
+  puts("PASS pause resize: shrink/grow/letterbox, frozen redraw, resume and recapture");
   size_t size = 1280 * 720 * 4;
   pixels = malloc(size);
   REQUIRE(pixels && bk_renderer_readback(renderer, pixels, size, error));

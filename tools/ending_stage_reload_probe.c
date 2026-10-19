@@ -46,6 +46,21 @@ static BkEndingBackgroundAssets *stage_background(EndingNormalScene *s) {
   return s->assets ? bk_ending_normal_assets_background(s->assets)
                    : bk_ending_secondary_assets_background(s->secondary_assets);
 }
+static int stage_release(void *context, BkEndingLoader loader, char e[256]) {
+  EndingNormalScene *s = context;
+  BkActorPose *primary = scene_primary(s);
+  if (!primary || !ui_reload_release(s, loader, e))
+    return 0;
+  for (unsigned role = 0; role < ENDING_ROLE_COUNT; ++role)
+    if (scene_actor(s, role) || scene_registry(s, role) != BK_MODEL_NONE ||
+        scene_root(s, role))
+      return fail(e, "retired stage left an active actor binding");
+  BkActorPose *retired = s->retired.normal
+      ? bk_ending_normal_assets_pose(s->retired.normal, 0)
+      : bk_ending_secondary_assets_pose(s->retired.secondary, 0);
+  return retired == primary && bk_actor_pose_model(retired)
+      ? 1 : fail(e, "retired snapshot lost its original actor owner");
+}
 #define VERIFY(condition) do { if (!(condition)) { \
   fprintf(stderr, "stage reload group%u line%d (%s): %s\n", \
           group, __LINE__, #condition, e); goto done; } } while (0)
@@ -119,7 +134,7 @@ static int stage_profile(BkRenderer *renderer, BkResourceStore *store,
     BkEndingReloadBindings bindings;
     VERIFY(bk_ending_state_reload_bindings(s->state, s->common,
                                            &s->previous_flow, &bindings));
-    BkEndingReloadOps ops = {s, ui_reload_load, ui_reload_release,
+    BkEndingReloadOps ops = {s, ui_reload_load, stage_release,
         ui_reload_final_image, ui_reload_leave, ui_reload_lighting,
         ui_reload_schedule, ui_reload_present, ui_reload_status, ui_reload_pause};
     s->state->next_mode = to_normal;

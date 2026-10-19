@@ -4,7 +4,7 @@
 #endif
 #include "save/capture_file.h"
 #include "save/checkpoint_file.h"
-#include "save/file_commit.h"
+#include "core/file.h"
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
@@ -38,7 +38,7 @@ int main(void) {
   BkCaptureFiles *photos = bk_capture_files_create(root, error);
   BkCheckpointFiles *saves = bk_checkpoint_files_create(root, error);
   assert(photos && saves);
-  bk_save_set_commit(commit);
+  bk_file_set_commit(commit);
   BkBlob image = {(uint8_t *)"photo", 5}, read = {0};
   expect_present = 1;
   assert(bk_capture_file_write(photos, 1, "ri_test.bmp", &image, error));
@@ -73,7 +73,7 @@ int main(void) {
   uint8_t inventory[8] = {0};
   assert(bk_checkpoint_file_store(saves, 0, 0, 1, inventory, &time, 0, &bank, error));
   assert(commits == 8);
-  bk_save_set_commit(NULL);
+  bk_file_set_commit(NULL);
   assert(bk_capture_file_write(photos, 0, "sy_99.bmp", &image, error) && commits == 8);
   assert(bk_capture_file_remove_pause(photos, error));
   bk_capture_files_destroy(photos);

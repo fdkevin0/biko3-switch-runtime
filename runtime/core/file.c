@@ -1,13 +1,12 @@
-#include "save/file_replace_internal.h"
-#include "save/file_commit.h"
+#include "core/file.h"
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
-static BkSaveCommit commit_save;
-void bk_save_set_commit(BkSaveCommit commit) { commit_save = commit; }
-int bk_save_file_commit(const char *path, char error[256]) {
-  return !commit_save || commit_save(path, error);
+static BkFileCommit commit_file;
+void bk_file_set_commit(BkFileCommit commit) { commit_file = commit; }
+int bk_file_commit(const char *path, char error[256]) {
+  return !commit_file || commit_file(path, error);
 }
 static int failure(char error[256], const char *operation, int code) {
   snprintf(error, 256, "file replacement: %s: %s (%d)", operation,
@@ -33,7 +32,7 @@ static int exists(const char *path, char e[256]) {
   failure(e, "inspect destination", errno);
   return -1;
 }
-int bk_save_file_recover(const char *path, char e[256]) {
+int bk_file_recover(const char *path, char e[256]) {
   char backup[1320];
   if (!backup_path(backup, path, e))
     return 0;
@@ -45,16 +44,16 @@ int bk_save_file_recover(const char *path, char e[256]) {
     return 0;
   if (present && rename(backup, path))
     return failure(e, "restore previous file", errno);
-  return !present || bk_save_file_commit(path, e);
+  return !present || bk_file_commit(path, e);
 }
-int bk_save_file_replace(const char *tmp, const char *path, char e[256]) {
+int bk_file_replace(const char *tmp, const char *path, char e[256]) {
   char backup[1320];
-  if (!tmp || !backup_path(backup, path, e) || !bk_save_file_recover(path, e))
+  if (!tmp || !backup_path(backup, path, e) || !bk_file_recover(path, e))
     return 0;
   if (!rename(tmp, path)) {
     /* A stale backup only occurs after a previously completed installation. */
     remove(backup);
-    return bk_save_file_commit(path, e);
+    return bk_file_commit(path, e);
   }
   int code = errno;
   if (code != EEXIST)
@@ -74,5 +73,5 @@ int bk_save_file_replace(const char *tmp, const char *path, char e[256]) {
     return failure(e, "install failed; previous file restored", code);
   }
   remove(backup);
-  return bk_save_file_commit(path, e);
+  return bk_file_commit(path, e);
 }

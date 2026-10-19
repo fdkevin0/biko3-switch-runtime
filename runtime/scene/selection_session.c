@@ -231,16 +231,6 @@ int bk_selection_session_step(BkSelectionSession *s,
   s->drawn = 0;
   return 1;
 }
-int bk_selection_session_resize(BkSelectionSession *s, unsigned width,
-                                unsigned height, char e[256]) {
-  if (!s || !width || !height || width > 16384 || height > 16384)
-    return fail(e, "invalid resize extent");
-  if (!bk_selection_ui_resize(s->config.ui, s->config.width, width, e))
-    return 0;
-  s->config.width = width;
-  s->config.height = height;
-  return 1;
-}
 int bk_selection_session_draw(BkSelectionSession *s, char e[256]) {
   if (!s || !s->ready)
     return fail(e, "no prepared frame");

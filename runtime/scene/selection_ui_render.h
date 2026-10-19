@@ -12,7 +12,7 @@ BkSelectionUiRender *bk_selection_ui_render_create(BkRenderer *,
                                                    char error[256]);
 void bk_selection_ui_render_destroy(BkSelectionUiRender *);
 /* Already evaluated corners and UV cropping, including zero-width labels. No
- * menu stepping or pointer/flow mutation. Caller sets the logical viewport. */
+ * menu stepping or pointer/flow mutation. width/height describe the logical canvas; caller sets the physical viewport. */
 int bk_selection_ui_render_prepare(BkSelectionUiRender *,
                                    const BkSelectionFrame *, unsigned width,
                                    unsigned height, char error[256]);

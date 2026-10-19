@@ -33,10 +33,15 @@ int bk_screenshot_request(BkScreenshot *, int photo, unsigned album_group,
 int bk_screenshot_trigger(BkScreenshot *, char error[256]);
 int bk_screenshot_configure(BkScreenshot *, int photo, unsigned album_group,
                             const BkViewport *crop, char error[256]);
+/* The configured request captures the current 4:3 content area, including
+ * when resize occurs before its eventual flush. Explicit configure resets
+ * this policy, preserving callers that request a fixed physical crop. */
+int bk_screenshot_follow_viewport(BkScreenshot *, char error[256]);
 void bk_screenshot_cancel(BkScreenshot *); /*49d094*/
 typedef struct {
   BkScreenshot *screenshot;
   BkViewport crop;
+  int follow_viewport;
 } BkScreenshotRequest;
 /* Borrowed request binding, suitable for BkPlayerHotkeyServices.capture.
  * Copies the crop and fallback group; an explicitly bound live group wins

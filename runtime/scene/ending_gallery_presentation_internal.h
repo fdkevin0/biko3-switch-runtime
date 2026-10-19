@@ -18,13 +18,13 @@ static BkFaceAssets *gallery_face_assets(EndingNormalScene *s) {
       : bk_ending_normal_assets_face(s->assets);
 }
 static unsigned gallery_role(BkEndingGalleryActor actor) {
-  return actor == BK_ENDING_GALLERY_BACKGROUND ? 5 : (unsigned)actor;
+  return actor == BK_ENDING_GALLERY_BACKGROUND ? ENDING_ROLE_BACKGROUND : (unsigned)actor;
 }
 static int gallery_advance(void *p, BkEndingGalleryActor actor, float seconds,
                             int reverse, char e[256]) {
   EndingNormalScene *s = p;
   unsigned role = gallery_role(actor);
-  if (role > 5 || !scene_actor(s, role)) return fail(e, "gallery animation owner absent");
+  if (role >= ENDING_ROLE_COUNT || !scene_actor(s, role)) return fail(e, "gallery animation owner absent");
   if (reverse) {
     if (reverse != 1 || role >= 3 || !s->tertiary_assets)
       return fail(e, "gallery reverse scheduler requires third-stage actors");
@@ -33,7 +33,7 @@ static int gallery_advance(void *p, BkEndingGalleryActor actor, float seconds,
   }
   if (s->tertiary_assets)
     return bk_ending_tertiary_assets_advance(s->tertiary_assets, role, seconds, e);
-  unsigned legacy = scene_legacy_role(s, role);
+  unsigned legacy = scene_registry(s, role);
   if (s->selected_assets)
     return bk_ending_selected_assets_advance(s->selected_assets, legacy, seconds, e);
   if (s->secondary_assets)

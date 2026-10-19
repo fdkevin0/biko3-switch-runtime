@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "app/pause_preview.h"
 #include "app/pause_session.h"
 #include "scene/system_audio.h"
@@ -5,7 +6,7 @@
 #include <string.h>
 typedef struct {
   BkRenderer *renderer;
-  BkViewport viewport;
+  BkViewport viewport, display;
   BkResourceStore *resources;
   BkCaptureFiles *files;
   BkPauseSession *session;
@@ -71,7 +72,7 @@ static int resize(void *context, unsigned width, unsigned height,
                   char error[256]) {
   PausePreview *p = context;
   if (!p || !width || !height ||
-      !bk_camera_fit(&p->viewport, width, height, 4, 3)) {
+      !bk_camera_fit(&p->display, width, height, 4, 3)) {
     snprintf(error, 256, "pause preview: invalid resize viewport");
     return 0;
   }
@@ -87,6 +88,10 @@ static int step(void *context, double seconds, const BkInput *input,
     snprintf(error, 256, "pause preview: invalid fixed step");
     return 0;
   }
+  BkInput mapped;
+  if (!bk_ui_input(&mapped, input, &p->display, error))
+    return 0;
+  input = &mapped;
   BkInput pointer_input = *input;
   pointer_input.held &= ~(BK_BUTTON_UP | BK_BUTTON_DOWN |
                           BK_BUTTON_LEFT | BK_BUTTON_RIGHT);
@@ -140,11 +145,11 @@ static int draw(void *context, const BkSceneFrame *frame, char error[256]) {
   }
   unsigned drawable_width, drawable_height;
   bk_renderer_extent(p->renderer, &drawable_width, &drawable_height);
-  if (!bk_camera_fit(&p->viewport, drawable_width, drawable_height, 4, 3)) {
+  if (!bk_camera_fit(&p->display, drawable_width, drawable_height, 4, 3)) {
     snprintf(error, 256, "pause preview: invalid drawable viewport");
     return 0;
   }
-  if (!bk_renderer_viewport(p->renderer, &p->viewport, error) ||
+  if (!bk_renderer_viewport(p->renderer, &p->display, error) ||
       !bk_pause_session_draw(p->session, error) ||
       !bk_renderer_viewport(p->renderer, NULL, error))
     return 0;
@@ -176,8 +181,9 @@ BkScene *bk_pause_preview_create_shared(const BkSceneServices *services,
   }
   p->renderer = services->renderer;
   unsigned width, height;
+  p->viewport = bk_ui_canvas();
   bk_renderer_extent(p->renderer, &width, &height);
-  if (!bk_camera_fit(&p->viewport, width, height, 4, 3)) {
+  if (!bk_camera_fit(&p->display, width, height, 4, 3)) {
     snprintf(error, 256, "pause preview: invalid renderer extent");
     free(p);
     return NULL;

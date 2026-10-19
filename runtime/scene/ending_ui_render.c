@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/ending_ui_render.h"
 #include <limits.h>
 #include <math.h>
@@ -108,10 +109,8 @@ int bk_ending_ui_render_prepare(BkEndingUiRender *r, const BkEndingUiFrame *f,
     r->ready = 0;
   if (!r || !f || !width || !height || f->count > BK_ENDING_UI_DRAWS)
     return fail(e, "invalid frame/extent");
-  unsigned tw, th;
-  bk_renderer_extent(r->renderer, &tw, &th);
-  if (width > tw || height > th)
-    return fail(e, "viewport exceeds target");
+  if (!bk_ui_extent(width, height))
+    return fail(e, "invalid logical canvas extent");
   for (unsigned i = 0; i < f->count; ++i) {
     const BkEndingUiDraw *d = &f->draws[i];
     const float *q = d->xy;

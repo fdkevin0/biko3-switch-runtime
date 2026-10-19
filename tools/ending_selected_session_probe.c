@@ -1,3 +1,4 @@
+#include "ui_probe_input.h"
 /*Actual Japanese resources through the production selected session. Direct
  *entries run their real opening. Cross-loader requests are explicit boundary
  *fixtures, not evidence of natural story input or an implemented phase8 loop.*/
@@ -191,8 +192,8 @@ static int profile(BkRenderer *renderer, BkResourceStore *store, unsigned group,
     int32_t point[2];
     VERIFY(bk_ending_ui_project_target(&s->ui_pick, 4, point, e));
     BkInput pointer = {.pointer_active = 1,
-        .pointer_x = (float)s->viewport.x + (float)point[0],
-        .pointer_y = (float)s->viewport.y + (float)point[1]};
+        .pointer_x = probe_ui_x(&s->viewport, (float)point[0]),
+        .pointer_y = probe_ui_y(&s->viewport, (float)point[1])};
     VERIFY(probe_input_tick(scene, s, out, &pointer, e));
     pointer.held = pointer.pressed = BK_BUTTON_CONFIRM;
     VERIFY(probe_input_tick(scene, s, out, &pointer, e));
@@ -209,8 +210,8 @@ static int profile(BkRenderer *renderer, BkResourceStore *store, unsigned group,
     int32_t next = s->state->choices[0];
     BkEndingNormalRender *old_render = s->render;
     int32_t count = records ? records->groups[group].count : 0;
-    pointer.pointer_x = (float)s->viewport.x + (float)s->state->points[0][0];
-    pointer.pointer_y = (float)s->viewport.y + (float)s->state->points[0][1];
+    pointer.pointer_x = probe_ui_x(&s->viewport, (float)s->state->points[0][0]);
+    pointer.pointer_y = probe_ui_y(&s->viewport, (float)s->state->points[0][1]);
     pointer.held = pointer.pressed = 0;
     pointer.released = BK_BUTTON_CONFIRM;
     VERIFY(probe_input_tick(scene, s, out, &pointer, e));

@@ -1,3 +1,4 @@
+#include "ui_probe_input.h"
 /*Production service boundaries with actual Japanese actor/UI/audio owners.
  *Explicit completion/replay states are fixtures, not natural game completion.*/
 #define main selected_session_regression_main
@@ -94,7 +95,7 @@ static int adapter_profile(BkRenderer *renderer, BkResourceStore *store,
   BkEndingUiFrame draw = {0};
   CHECK(bk_ending_ui_dispatch_sprite(&s->ui, &s->stage_ui, 52, 1.f / 60, &draw, e));
   CHECK(draw.count == 1 && draw.draws[0].slot == 52 && draw.draws[0].alpha == 1);
-  CHECK(bk_ending_ui_render_prepare(s->ui_render, &draw, s->viewport.width, s->viewport.height, e));
+  CHECK(bk_ending_ui_render_prepare(s->ui_render, &draw, BK_UI_WIDTH, BK_UI_HEIGHT, e));
   CHECK(bk_renderer_begin(renderer, e) && bk_ending_ui_render_draw(s->ui_render, e) &&
       bk_renderer_end(renderer, e));
   uint8_t flash[85 * 64 * 4];
@@ -102,7 +103,7 @@ static int adapter_profile(BkRenderer *renderer, BkResourceStore *store,
   out->timeline.state = selected_hash(out->timeline.state, flash, sizeof(flash));
   uint8_t hidden[sizeof(flash)];
   draw.draws[0].alpha = 0;
-  CHECK(bk_ending_ui_render_prepare(s->ui_render, &draw, s->viewport.width, s->viewport.height, e));
+  CHECK(bk_ending_ui_render_prepare(s->ui_render, &draw, BK_UI_WIDTH, BK_UI_HEIGHT, e));
   CHECK(bk_renderer_begin(renderer, e) && bk_ending_ui_render_draw(s->ui_render, e) &&
       bk_renderer_end(renderer, e));
   CHECK(bk_renderer_readback(renderer, hidden, sizeof(hidden), e));
@@ -162,7 +163,8 @@ static int adapter_profile(BkRenderer *renderer, BkResourceStore *store,
   s->selected_action->counter = 0;
   s->selected_action->previous_clock = 0;
   s->state->retained.auxiliary.word_6ea348 = 0;
-  BkInput finish_input = {.held = BK_BUTTON_CONFIRM, .pointer_motion_x = 1};
+  BkInput finish_input = {.held = BK_BUTTON_CONFIRM,
+      .pointer_motion_x = probe_ui_motion_x(&s->viewport, 1)};
   CHECK(probe_input_tick(scene, s, &out->timeline, &finish_input, e));
   CHECK(s->state->ui_controller.auxiliary.mode == 5 ||
       s->state->ui_controller.auxiliary.mode == 7);
@@ -195,7 +197,7 @@ static int adapter_profile(BkRenderer *renderer, BkResourceStore *store,
   CHECK(!early && s->auxiliary_assets && s->state->frame.phase == 4);
   for (unsigned i = 0; i < 180; ++i) CHECK(probe_tick(scene, s, &out->timeline, e));
   int32_t point[2];
-  CHECK(prepare_ui_geometry(s, s->viewport.width, s->viewport.height, e));
+  CHECK(prepare_ui_geometry(s, BK_UI_WIDTH, BK_UI_HEIGHT, e));
   CHECK(bk_ending_ui_project_target(&s->ui_pick, 4, point, e));
   s->state->control.state_721eec = 1;
   s->state->auxiliary.pending = 0;
@@ -209,8 +211,8 @@ static int adapter_profile(BkRenderer *renderer, BkResourceStore *store,
   CHECK(auxiliary_state4_expression(s, 1, 2, 1, e));
   CHECK(!memcmp(face, &old_face, sizeof(old_face)) &&
       s->state->auxiliary.expression_a == 1 && s->state->auxiliary.expression_b == 2);
-  BkInput pointer = {.pointer_active = 1, .pointer_x = s->viewport.x + point[0],
-      .pointer_y = s->viewport.y + point[1], .pressed = BK_BUTTON_CONFIRM,
+  BkInput pointer = {.pointer_active = 1, .pointer_x = probe_ui_x(&s->viewport, point[0]),
+      .pointer_y = probe_ui_y(&s->viewport, point[1]), .pressed = BK_BUTTON_CONFIRM,
       .held = BK_BUTTON_CONFIRM};
   CHECK(probe_input_tick(scene, s, &out->timeline, &pointer, e));
   CHECK(s->state->control.state_721eec == 3 && s->state->frame.camera_cached == 4);

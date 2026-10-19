@@ -21,7 +21,8 @@ typedef struct {
 void bk_settings_defaults(BkSettings *settings);
 /* Returns 1 on success. A missing file is success with defaults. */
 int bk_settings_load(BkSettings *settings, const char *root, char error[256]);
-/* Atomically replaces <root>/settings.cfg. */
+/* Replaces <root>/settings.cfg, retaining a recoverable backup on filesystems
+ * without overwrite-rename. Uses the installed core/file.h commit service. */
 int bk_settings_save(const BkSettings *settings, const char *root,
                      char error[256]);
 

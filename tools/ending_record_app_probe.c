@@ -1,3 +1,4 @@
+#include "ui_probe_input.h"
 /* Actual recorder -> flow10 save -> closing dialogue/unlock -> new-process
  * load -> menu-selected replay. The story handoff is an explicit boundary.
  * Isolated mode also supplies the selected-stage handoff; natural mode runs
@@ -135,8 +136,8 @@ int main(int argc,char **argv) {
       CHECK(tick(scene,renderer,audio,&sink,point,error));
       CHECK(s->ending_state.auxiliary.gate==3&&s->ending_state.ui_controller.auxiliary.mode==3);
       int32_t choice=s->ending_state.choices[0];
-      point.pointer_x=s->viewport.x+(float)s->ending_state.points[0][0];
-      point.pointer_y=s->viewport.y+(float)s->ending_state.points[0][1];
+      point.pointer_x=probe_ui_x(&s->viewport, (float)s->ending_state.points[0][0]);
+      point.pointer_y=probe_ui_y(&s->viewport, (float)s->ending_state.points[0][1]);
       point.pressed=point.held=0;point.released=BK_BUTTON_CONFIRM;
       CHECK(tick(scene,renderer,audio,&sink,point,error));
       CHECK(r->count==before_menu+1&&r->actions[before_menu]==choice+12);
@@ -163,11 +164,11 @@ int main(int argc,char **argv) {
         if(n%15==1) { drag.held=BK_BUTTON_CONFIRM;++clicks; }
       } else if(gate==3 && mode==0) {
         drag=(BkInput){.pointer_active=1,
-            .pointer_x=s->viewport.x+(float)s->ending_state.points[0][0],
-            .pointer_y=s->viewport.y+(float)s->ending_state.points[0][1]};
+            .pointer_x=probe_ui_x(&s->viewport, (float)s->ending_state.points[0][0]),
+            .pointer_y=probe_ui_y(&s->viewport, (float)s->ending_state.points[0][1])};
       } else if(gate==3) {
         drag=(BkInput){.held=BK_BUTTON_CONFIRM,
-            .pointer_motion_x=(n%32<16)?1:-1};
+            .pointer_motion_x=probe_ui_motion_x(&s->viewport,(n%32<16)?1.f:-1.f)};
       }
       drag.pressed=drag.held&~previous_buttons;
       drag.released=previous_buttons&~drag.held;previous_buttons=drag.held;

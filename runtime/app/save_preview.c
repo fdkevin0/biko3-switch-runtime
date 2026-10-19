@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "app/save_preview.h"
 #include "core/random.h"
 #include "scene/save_menu_labels.h"
@@ -20,7 +21,7 @@ typedef struct {
   uint8_t labels[5][512];
   size_t lengths[5];
   BkSystemAudio *sounds[6];
-  BkViewport viewport;
+  BkViewport viewport, display;
   BkVirtualPointer pointer;
   double elapsed;
   unsigned mode, text_group;
@@ -165,7 +166,7 @@ void bk_save_preview_clock(BkScene *scene, double elapsed) {
 static int resize(void *p, unsigned width, unsigned height, char e[256]) {
   SavePreview *s = p;
   if (!s || !width || !height ||
-      !bk_camera_fit(&s->viewport, width, height, 4, 3)) {
+      !bk_camera_fit(&s->display, width, height, 4, 3)) {
     snprintf(e, 256, "save preview: invalid resize viewport");
     return 0;
   }
@@ -179,6 +180,10 @@ static int step(void *p, double seconds, const BkInput *input, char e[256]) {
     snprintf(e, 256, "save preview: invalid step/retired scene");
     return 0;
   }
+  BkInput mapped;
+  if (!bk_ui_input(&mapped, input, &s->display, e))
+    return 0;
+  input = &mapped;
   BkInput pointer_input = *input;
   /* D-pad retains slot/tab navigation; the left stick moves freely. */
   pointer_input.held &= ~(BK_BUTTON_UP | BK_BUTTON_DOWN |
@@ -251,11 +256,11 @@ static int draw(void *p, const BkSceneFrame *frame, char e[256]) {
   }
   unsigned drawable_width, drawable_height;
   bk_renderer_extent(s->renderer, &drawable_width, &drawable_height);
-  if (!bk_camera_fit(&s->viewport, drawable_width, drawable_height, 4, 3)) {
+  if (!bk_camera_fit(&s->display, drawable_width, drawable_height, 4, 3)) {
     snprintf(e, 256, "save preview: invalid drawable viewport");
     return 0;
   }
-  return bk_renderer_viewport(s->renderer, &s->viewport, e) &&
+  return bk_renderer_viewport(s->renderer, &s->display, e) &&
          bk_save_menu_render_draw(s->render, e) &&
          bk_renderer_viewport(s->renderer, NULL, e);
 }
@@ -300,8 +305,9 @@ BkScene *bk_save_preview_create(const BkSceneServices *services,
   s->mode = b->flow->previous == 0x20;
   s->chinese = (bk_resources_patch_flags(services->resources) & BK_PATCH_CHINESE) != 0;
   unsigned group = (unsigned)(state->control.tab - 3), width, height;
+  s->viewport = bk_ui_canvas();
   bk_renderer_extent(s->renderer, &width, &height);
-  if (!bk_camera_fit(&s->viewport, width, height, 4, 3))
+  if (!bk_camera_fit(&s->display, width, height, 4, 3))
     goto bad;
   s->render = bk_save_menu_render_create(s->renderer, services->resources,
                                          s->mode, group, e);

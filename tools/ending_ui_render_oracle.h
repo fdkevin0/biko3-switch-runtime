@@ -20,7 +20,7 @@ static double sample(const BkImage *im, double x, double y, unsigned c) {
          (texel(im, l, t + 1, c) * (1 - fx) + texel(im, l + 1, t + 1, c) * fx) *
              fy;
 }
-static int coords(const BkEndingUiDraw *d, unsigned x, unsigned y,
+static int coords(const BkEndingUiDraw *d, double x, double y,
                   double out[2]) {
   const unsigned triangles[2][3] = {{0, 1, 2}, {3, 0, 2}};
   const double uv[4][2] = {{d->uv[0], d->uv[1]},
@@ -48,8 +48,8 @@ static int coords(const BkEndingUiDraw *d, unsigned x, unsigned y,
   }
   return 0;
 }
-static int expected_over(const BkImage im[75], const BkEndingUiFrame *f, unsigned x,
-                         unsigned y, int rgb[3]) {
+static int expected_over(const BkImage im[75], const BkEndingUiFrame *f, double x,
+                         double y, int rgb[3]) {
   for (unsigned i = 0; i < f->count; ++i) {
     const BkEndingUiDraw *d = &f->draws[i];
     double uv[2];
@@ -69,8 +69,8 @@ static int expected_over(const BkImage im[75], const BkEndingUiFrame *f, unsigne
   }
   return 1;
 }
-static inline int expected(const BkImage im[75], const BkEndingUiFrame *f, unsigned x,
-                           unsigned y, int rgb[3]) {
+static inline int expected(const BkImage im[75], const BkEndingUiFrame *f, double x,
+                           double y, int rgb[3]) {
   rgb[0] = 70;
   rgb[1] = 110;
   rgb[2] = 160;

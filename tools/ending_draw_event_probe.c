@@ -7,7 +7,8 @@
   fprintf(stderr, "ending draw group%u variant%u line%d (%s): %s\n", \
           group, variant, __LINE__, #x, e); goto done; } } while (0)
 
-static unsigned profiles, frames, dual_views, empty_views, gain_checks, redraws;
+static unsigned profiles, frames, dual_views, empty_views, gain_checks, redraws,
+                resize_redraws;
 typedef struct { uint64_t submitted; } Sink;
 static int submit(void *p, const int16_t *pcm, size_t n, char e[256]) {
   (void)pcm; (void)e;
@@ -92,6 +93,83 @@ static int restart(EndingNormalScene *s, unsigned slot, int32_t volume,
   return bk_ending_audio_call(s->audio, s->group, s->variant, 0,
                                &command, &playing, e);
 }
+typedef struct {
+  BkAudioStats stats;
+  BkAudioCursor voices[2];
+  int gain[2], playing[2];
+  int32_t volume[2], pan[2];
+} ResizeAudio;
+static int resize_audio(BkAudio *audio, ResizeAudio *out) {
+  memset(out, 0, sizeof(*out));
+  out->stats = bk_audio_stats(audio);
+  for (unsigned i = 0; i < 2; ++i) {
+    if (!bk_audio_cursor(audio, i, out->voices + i) ||
+        !bk_audio_playing(audio, i, out->playing + i))
+      return 0;
+    out->gain[i] = bk_audio_get_gain(audio, i, out->volume + i, out->pan + i);
+  }
+  return 1;
+}
+static int resize_snapshot(BkScene *scene, BkRenderer *renderer,
+                           EndingNormalScene *s, char e[256]) {
+  const unsigned sizes[][2] = {{32,24}, {97,61}, {63,79}, {64,48}};
+  BkEndingState state = *s->state;
+  BkMenuCamera camera = *s->camera_owner;
+  BkVirtualPointer pointer = s->pointer;
+  uint32_t random = *s->random;
+  int32_t duck = *s->duck_transition;
+  BkEndingNormalRender *snapshot = s->snapshot_render;
+  uint32_t movie = bk_ending_normal_render_movie_frame(snapshot);
+  ResizeAudio audio;
+  if (!resize_audio(s->services.audio, &audio))
+    return fail(e, "cannot inspect resize audio fixture");
+  for (unsigned i = 0; i < sizeof(sizes) / sizeof(*sizes); ++i) {
+    unsigned w = sizes[i][0], h = sizes[i][1];
+    uint8_t first[97 * 79 * 4], again[sizeof(first)];
+    size_t bytes = (size_t)w * h * 4;
+    if (!bk_renderer_resize(renderer, w, h, e) ||
+        !bk_scene_resize(scene, w, h, e) ||
+        !bk_renderer_begin(renderer, e) ||
+        !bk_scene_draw(scene, &(BkSceneFrame){0}, e) ||
+        !bk_renderer_end(renderer, e) ||
+        !bk_renderer_readback(renderer, first, bytes, e) ||
+        !bk_renderer_begin(renderer, e) ||
+        !bk_scene_draw(scene, &(BkSceneFrame){0}, e) ||
+        !bk_renderer_end(renderer, e) ||
+        !bk_renderer_readback(renderer, again, bytes, e))
+      return 0;
+    BkViewport invalid = s->viewport;
+    invalid.width = w + 1;
+    if (bk_ending_normal_render_set_viewports(snapshot, &invalid,
+                                             &s->special_viewport, e) ||
+        bk_ending_normal_render_set_viewports(snapshot, &s->viewport,
+                                             &(BkViewport){0}, e) ||
+        bk_ending_normal_render_set_viewports(snapshot, &s->viewport,
+            &(BkViewport){UINT32_MAX, 0, 1, 1}, e))
+      return fail(e, "resized snapshot accepted an invalid physical viewport");
+    /* Bypass session relocation here: rejected rectangles must not corrupt
+     * either cached view, and the already prepared UI remains reusable. */
+    if (!bk_renderer_begin(renderer, e) ||
+        !bk_renderer_viewport(renderer, &s->viewport, e) ||
+        !bk_ending_normal_render_draw(snapshot, e) ||
+        !bk_ending_ui_batch_draw(s->ui_batch, e) ||
+        !bk_renderer_end(renderer, e) ||
+        !bk_renderer_readback(renderer, again, bytes, e))
+      return 0;
+    ResizeAudio after;
+    if (!resize_audio(s->services.audio, &after) ||
+        memcmp(&audio, &after, sizeof(audio)) || memcmp(first, again, bytes) ||
+        memcmp(&state, s->state, sizeof(state)) ||
+        memcmp(&camera, s->camera_owner, sizeof(camera)) ||
+        memcmp(&pointer, &s->pointer, sizeof(pointer)) ||
+        *s->random != random || *s->duck_transition != duck ||
+        s->snapshot_render != snapshot ||
+        bk_ending_normal_render_movie_frame(snapshot) != movie)
+      return fail(e, "resized redraw changed CPU state, camera, RNG, audio or movie");
+    resize_redraws += 3;
+  }
+  return 1;
+}
 static int profile(BkRenderer *renderer, BkResourceStore *store,
                     unsigned group, unsigned variant, char e[256]) {
   int ok = 0;
@@ -169,6 +247,12 @@ static int profile(BkRenderer *renderer, BkResourceStore *store,
   CHECK(!bk_ending_normal_render_pass_count(s->render));
   s->special_viewport.width = saved_width;
   CHECK(sample(renderer, s, 1, 1, 0, e));
+  CHECK(resize_snapshot(scene, renderer, s, e));
+  /* The UI tail may retire a stage while its last dual-view snapshot remains
+   * drawable. Resizing must relocate that snapshot without its live actors. */
+  CHECK(ui_reload_release(s, BK_ENDING_LOAD_4CF318, e));
+  CHECK(!s->render && s->retired.render == s->snapshot_render);
+  CHECK(resize_snapshot(scene, renderer, s, e));
   bk_scene_destroy(scene);
   scene = NULL;
   BkRenderStats final = bk_renderer_stats(renderer);
@@ -203,8 +287,8 @@ int main(int argc, char **argv) {
         goto done;
   printf("PASS ending draw events: profiles%u frames%u dual%u empty%u "
          "gain_checks%u exact_redraws%u; real PCM status, retained duck, "
-         "mode/phase dispatch and resource retirement\n",
-         profiles, frames, dual_views, empty_views, gain_checks, redraws);
+         "mode/phase dispatch, resource retirement, resized_redraws%u\n",
+         profiles, frames, dual_views, empty_views, gain_checks, redraws, resize_redraws);
   result = 0;
 done:
   if (result)

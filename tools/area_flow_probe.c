@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 /* Explicit area-completion fixtures: real menu, retained world reload and GPU.
  * Does not claim the fixtures were reached by natural mission gameplay. */
 #include "app/game_preview.h"
@@ -130,7 +131,7 @@ int main(int argc, char **argv) {
     BkCommonHudState common = {0}; /*fresh process baseline, then4e6dee*/
     bk_common_hud_initialize(&common);
     BkMenuCursor cursor = {0};
-    REQUIRE(bk_menu_cursor_initialize(&cursor, 960, 720));
+    REQUIRE(bk_menu_cursor_initialize(&cursor, BK_UI_WIDTH, BK_UI_HEIGHT));
     BkCheckpointPrompt prompt = {0};
     uint8_t overlay = 0, hover = 0;
     for (unsigned area = 1; area < 9; ++area) {
@@ -148,6 +149,21 @@ int main(int argc, char **argv) {
       for (unsigned i = 0; i < 90; ++i) {
         REQUIRE(tick(menu, renderer, audio, (BkInput){0}, error));
         ++frames;
+      }
+      if (group == 0 && area == 1) {
+        const unsigned sizes[][2] = {{640,480},{1600,900},{1280,720}};
+        for (unsigned k=0;k<sizeof(sizes)/sizeof(*sizes);++k) {
+          BkCheckpointPrompt frozen=prompt;
+          BkMenuCursor frozen_cursor=cursor;
+          REQUIRE(bk_renderer_resize(renderer,sizes[k][0],sizes[k][1],error) &&
+                  bk_scene_resize(menu,sizes[k][0],sizes[k][1],error) &&
+                  bk_renderer_begin(renderer,error) &&
+                  bk_scene_draw(menu,&(BkSceneFrame){0},error) &&
+                  bk_renderer_end(renderer,error));
+          REQUIRE(!memcmp(&prompt,&frozen,sizeof(prompt)) &&
+                  !memcmp(&cursor,&frozen_cursor,sizeof(cursor)));
+          REQUIRE(tick(menu,renderer,audio,(BkInput){0},error));
+        }
       }
       REQUIRE(tick(menu, renderer, audio, (BkInput){.pressed = BK_BUTTON_RIGHT},
                    error));

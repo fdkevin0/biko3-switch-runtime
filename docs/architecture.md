@@ -6,7 +6,7 @@
 
 | 目录 / 目标 | 职责与边界 |
 | --- | --- |
-| `core/` · `bk_core` | 输入快照、数学、时钟、随机数和配置等公共 CPU 能力 |
+| `core/` · `bk_core` | 输入快照、数学、时钟、随机数、配置和文件替换/提交等公共 CPU 能力 |
 | `resource/` · `bk_resource` | PP/TBL、图片、脚本和 FTT 解码，资源挂载及补丁覆盖；不创建 GPU 对象 |
 | `model/` · `bk_model` | 模型、材质、动画、蒙皮、变形；依赖 core/resource，输出 CPU 数据 |
 | `world/` · `bk_world` | 姿态与节点发布、路线、镜头、碰撞和空间查询；依赖 model/core |
@@ -56,7 +56,7 @@ app 持有进程级状态和服务：资源 store、renderer、音频设备、�
 
 CPU 变换使用行向量 `world = local * parent`、`MVP = world * view * projection`；矩阵字节供 GLSL 列主序读取，等效转置。公开投影深度为近 0 / 远 1；Vulkan 内部的反向深度、比较与清除属于 renderer 适配，不能反向修改游戏镜头数学。
 
-4:3 内容区域由同一 viewport 用于 UI、投影、GPU viewport/scissor 和输入坐标换算。平台事件先转换为 drawable 像素，scene 再减内容原点。绘制附加帮助前恢复全屏区域；帮助不进入相册照片。
+UI 使用固定 1280×960 逻辑画布，布局、动画、光标和命中测试共用该坐标；窗口缩放不修改这些状态。平台将事件转换为 drawable 像素，scene 经 `ui/canvas.h` 映射到逻辑画布。GPU viewport/scissor、3D 特殊视口和截图裁切使用物理 4:3 内容区域；UI 投影尺寸允许大于 drawable，但仍检查合法上限。绘制附加帮助前恢复全屏区域；帮助不进入相册照片。
 
 网格、纹理和灯光由创建它们的 renderer 管理，CPU 解码器不执行 GPU 上传。scene 负责全局有序提交、透明层和显式灯光快照，renderer 不推断角色或剧情。背景稳定透明层与阴影深度偏移是明确的兼容策略，不能当作原指令严格等价；见[表面明暗修复](../reports/lighting-surface-layers.md)及[视口原点差异](../reports/ending-raster-origin.md)。
 
@@ -66,7 +66,7 @@ CPU 变换使用行向量 `world = local * parent`、`MVP = world * view * proje
 
 BKPT2 外挂由资源层解压并应用，场景从 `BK_PATCH_CHINESE` / `BK_PATCH_UNCENSORED` 选择相应适配。FTT 直接以双字节索引；中文标签使用 GBK，日文使用 Shift-JIS，字库覆盖本身不做转码。[补丁说明](patches.md)集中维护这项约定。
 
-save 显式编解码字段，不转储 C 结构体或指针。缺失、损坏和写入失败分开处理；损坏文件不能按空档覆盖。app 通过提交回调连接 HOS SaveData，save 不直接调用 libnx。多个持久化文件分别提交，不声称跨文件事务或断电持久性；见 [save 模块](../runtime/save/README.md)。
+save 显式编解码字段，不转储 C 结构体或指针。缺失、损坏和写入失败分开处理；损坏文件不能按空档覆盖。设置与 save 共用 core 的文件替换、备份恢复和提交服务；app 取得平台后、打开存档适配器前安装提交回调，关闭平台后清除，CPU 模块不直接调用 libnx。多个持久化文件分别提交，不声称跨文件事务或断电持久性；见 [save 模块](../runtime/save/README.md)。
 
 ## 原版对照与生产适配
 

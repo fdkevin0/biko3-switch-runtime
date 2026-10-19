@@ -24,6 +24,11 @@ static int click(void *p, char e[256]) {
   return !c->fail;
 }
 int main(void) {
+  /* Freeze retail ownership across every byte, including unsupported flows. */
+  for (unsigned flow = 0; flow < 256; ++flow)
+    assert(bk_flow_is_front_end(flow) ==
+           (flow == 1 || flow == 8 || flow == 0x18 || flow == 0x30 ||
+            flow == 0x38 || flow == 0x48 || flow == 0x60));
   char e[256];
   BkFlowLoadingState s = {
       .awaiting = 9,

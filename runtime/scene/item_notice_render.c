@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/item_notice_render.h"
 #include <stdlib.h>
 #include <string.h>
@@ -121,10 +122,8 @@ static int prepare(BkItemNoticeRender *n, const BkItemNoticeState *s,
                    const BkPulseSprite *prompt, BkTextFlow *flow, float seconds,
                    unsigned width, unsigned height, char error[256]) {
   n->ready = 0;
-  unsigned target_width, target_height;
-  bk_renderer_extent(n->renderer, &target_width, &target_height);
   BkItemNoticeSprite layout[7];
-  if (!height || height > target_height || width > target_width ||
+  if (!height || !bk_ui_extent(width, height) ||
       !bk_item_notice_layout(layout, n->group, width))
     return fail(error, "invalid viewport extent");
   float scale = (float)((double)width / 1280);

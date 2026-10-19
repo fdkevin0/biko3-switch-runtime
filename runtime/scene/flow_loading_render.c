@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/flow_loading_render.h"
 #include <math.h>
 #include <stdlib.h>
@@ -80,10 +81,8 @@ int bk_flow_loading_render_prepare(BkFlowLoadingRender *r,
   if (!r || !f || !width || !height || f->count > 4)
     return fail(error, "invalid frame/extent");
   r->ready = 0;
-  unsigned tw, th;
-  bk_renderer_extent(r->renderer, &tw, &th);
-  if (width > tw || height > th)
-    return fail(error, "viewport exceeds target");
+  if (!bk_ui_extent(width, height))
+    return fail(error, "invalid logical canvas extent");
   for (unsigned i = 0; i < f->count; ++i) {
     const BkFlowLoadingDraw *d = &f->draws[i];
     float q[4];

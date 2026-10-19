@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/curtain_render.h"
 #include <math.h>
 #include <stdlib.h>
@@ -68,10 +69,8 @@ int bk_curtain_render_prepare(BkCurtainRender *c, const BkCommonHudFrame *frame,
   if (!c || !frame || !width || !height || !isfinite(frame->curtain_alpha) ||
       frame->curtain_alpha < 0 || frame->curtain_alpha > 1)
     return fail(e, "invalid frame/extent");
-  unsigned w, h;
-  bk_renderer_extent(c->renderer, &w, &h);
-  if (width > w || height > h)
-    return fail(e, "viewport exceeds target");
+  if (!bk_ui_extent(width, height))
+    return fail(e, "invalid logical canvas extent");
   float scale = (float)((double)width / 1280), right = 1280 * scale,
         bottom = 960 * scale;
   float a = (uint32_t)((double)frame->curtain_alpha * 255) / 255.f;
@@ -105,8 +104,7 @@ int bk_curtain_render_draw_frame(BkCurtainRender *c, const BkCommonHudFrame *f,
   if (!c || !f || !width || !height || !isfinite(f->curtain_alpha) ||
       f->curtain_alpha < 0 || f->curtain_alpha > 1)
     return fail(e, "invalid transient curtain");
-  unsigned w, h; bk_renderer_extent(c->renderer, &w, &h);
-  if (width > w || height > h) return fail(e, "viewport exceeds target");
+  if (!bk_ui_extent(width, height)) return fail(e, "invalid logical canvas extent");
   float scale = (float)((double)width / 1280), right = 1280 * scale,
       bottom = 960 * scale;
   float alpha = (uint32_t)((double)f->curtain_alpha * 255) / 255.f;

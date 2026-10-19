@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/player_hud_render.h"
 #include <math.h>
 #include <stdlib.h>
@@ -101,10 +102,8 @@ int bk_player_hud_render_prepare(BkPlayerHudRender *h,
   if (!h || !f || !width || !height || f->count > BK_PLAYER_HUD_DRAWS ||
       (f->capture && f->capture_after > f->count))
     return fail(e, "invalid frame/extent");
-  unsigned tw, th;
-  bk_renderer_extent(h->renderer, &tw, &th);
-  if (width > tw || height > th)
-    return fail(e, "viewport exceeds target");
+  if (!bk_ui_extent(width, height))
+    return fail(e, "invalid logical canvas extent");
   h->ready = 0;
   for (unsigned i = 0; i < f->count; ++i) {
     const BkPlayerHudDraw *d = &f->draws[i];

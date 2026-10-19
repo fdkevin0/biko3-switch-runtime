@@ -1,4 +1,5 @@
 #include "app/front_end.h"
+#include "ui/canvas.h"
 #include "app/volume_session.h"
 #include "app/album_session.h"
 #include "save/capture_file.h"
@@ -7,6 +8,7 @@
 #include <string.h>
 struct BkFrontEnd {
   BkFrontEndConfig c;
+  BkViewport display;
   BkTitleMenuState title;
   BkSelectionUi selection;
   BkDialogueSessionState dialogue;
@@ -137,6 +139,8 @@ BkFrontEnd *bk_front_end_create(const BkFrontEndConfig *c, char e[256]) {
     return NULL;
   }
   s->c = *c;
+  s->display = c->viewport;
+  s->c.viewport = bk_ui_canvas();
   bk_album_menu_initialize(&s->album);
   s->camera_owner = c->camera ? c->camera : &s->camera;
   s->envelope_owner = c->envelope ? c->envelope : &s->envelope;
@@ -166,28 +170,28 @@ int bk_front_end_stop(BkFrontEnd *s, uint8_t flow, char e[256]) {
     return fail(e, "release of unowned flow");
   if (s->released)
     return 1;
-  if (flow == 1 || flow == 0x18) {
+  if (flow == BK_FLOW_TITLE || flow == BK_FLOW_GALLERY) {
     if (!bk_audio_clear(s->c.services.audio, 60, e))
       return 0;
     s->music_playing = 0;
   }
-  if (flow == 0x30) {
+  if (flow == BK_FLOW_VOLUME) {
     if (!bk_volume_session_stop(s->volume_session,e)) return 0;
     for(unsigned i=0;i<8;++i)
       if(s->sounds[i] && !bk_system_audio_bind_volume(s->sounds[i],
           &s->c.services.audio_volumes[BK_VOLUME_EFFECT],e)) return 0;
   }
-  if (flow == 0x60 &&
+  if (flow == BK_FLOW_ALBUM &&
       (!bk_album_session_stop(s->album_session,e) ||
        !bk_capture_files_count_photos(s->c.services.capture_files,s->c.photos,e)))
     return 0;
-  if (flow == 0x18)
+  if (flow == BK_FLOW_GALLERY)
     s->gallery.loaded = 0;
-  if (flow == 8 && !bk_dialogue_session_stop(s->dialogue_session, e))
+  if (flow == BK_FLOW_DIALOGUE && !bk_dialogue_session_stop(s->dialogue_session, e))
     return 0;
-  if (flow == 0x48 && !bk_special_session_stop(s->special_session, e))
+  if (flow == BK_FLOW_SPECIAL && !bk_special_session_stop(s->special_session, e))
     return 0;
-  if (flow == 0x38 && !bk_selection_session_released(s->selection_session))
+  if (flow == BK_FLOW_SELECTION && !bk_selection_session_released(s->selection_session))
     return fail(e, "selection release must finish its native control step");
   s->released = 1;
   return 1;
@@ -259,7 +263,7 @@ int bk_front_end_load(BkFrontEnd *s, uint8_t flow, uint8_t previous,
   s->group = (int32_t)*s->c.group;
   s->area = (int32_t)*s->c.area;
   uint32_t now = (uint32_t)(uint64_t)(wall * 1000);
-  if (flow == 1) {
+  if (flow == BK_FLOW_TITLE) {
     s->title_music =
         bk_audio_clip_load(s->c.services.resources, "bk3_02", "bg001.wav", e);
     if (!s->title_music ||
@@ -273,12 +277,12 @@ int bk_front_end_load(BkFrontEnd *s, uint8_t flow, uint8_t previous,
         !bk_title_menu_initialize(&s->title, s->c.viewport.width, 0, bk_volume_get(s->c.services.audio_volumes, BK_VOLUME_MUSIC, -900), &ops,
                                   e))
       goto bad;
-  } else if (flow == 0x18) {
-    if (previous == 0x10 &&
+  } else if (flow == BK_FLOW_GALLERY) {
+    if (previous == BK_FLOW_ENDING &&
         (!s->c.ending_flags_valid || !*s->c.ending_flags_valid ||
          !s->c.ending_flags_group || *s->c.ending_flags_group >= 5))
       return fail(e, "gallery return requires the released ending group");
-    unsigned ending_group = previous == 0x10 ? *s->c.ending_flags_group : 0;
+    unsigned ending_group = previous == BK_FLOW_ENDING ? *s->c.ending_flags_group : 0;
     s->gallery_result_valid = 0;
     s->gallery_render = bk_gallery_menu_render_create(
         s->c.services.renderer, s->c.services.resources, e);
@@ -294,21 +298,21 @@ int bk_front_end_load(BkFrontEnd *s, uint8_t flow, uint8_t previous,
         !bk_audio_play(s->c.services.audio, 60, s->gallery_music, 1, bk_volume_get(s->c.services.audio_volumes, BK_VOLUME_MUSIC, -900), 0, e))
       goto bad;
     s->music_playing = 1;
-  } else if (flow == 0x60) {
+  } else if (flow == BK_FLOW_ALBUM) {
     BkAlbumSessionConfig config={.services=s->c.services,.menu=&s->album,
         .viewport=s->c.viewport,.wall_seconds=wall,.context=s,
         .sound=sound,.playing=album_playing,.schedule=schedule};
     memcpy(config.pointer,s->pointer,sizeof(config.pointer));
     s->album_session=bk_album_session_create(&config,e);
     if(!s->album_session)goto bad;
-  } else if (flow == 0x30) {
+  } else if (flow == BK_FLOW_VOLUME) {
     BkVolumeSessionConfig config={.services=s->c.services,.file=s->c.volume_file,
         .viewport=s->c.viewport,.common=s->c.common,.curtain=s->c.curtain,
         .random=s->c.random,.previous=previous,.context=s,.schedule=schedule};
     memcpy(config.pointer,s->pointer,sizeof(config.pointer));
     s->volume_session=bk_volume_session_create(&config,e);
     if(!s->volume_session)goto bad;
-  } else if (flow == 0x48) {
+  } else if (flow == BK_FLOW_SPECIAL) {
     if (!s->c.services.capture_files || !s->c.special.screenshot)
       return fail(e, "special entry requires writable capture storage");
     BkSpecialSessionConfig c = s->c.special;
@@ -328,7 +332,7 @@ int bk_front_end_load(BkFrontEnd *s, uint8_t flow, uint8_t previous,
     s->special_session = bk_special_session_create(s->c.services.renderer,
         s->c.services.resources, s->c.services.audio, &c, e);
     if (!s->special_session) goto bad;
-  } else if (flow == 0x38) {
+  } else if (flow == BK_FLOW_SELECTION) {
     BkSelectionSessionConfig c = {
         .ui = &s->selection,
         .bindings = {s->c.common, s->c.flow, s->c.cursor, s->c.hover,
@@ -353,7 +357,7 @@ int bk_front_end_load(BkFrontEnd *s, uint8_t flow, uint8_t previous,
         &c, e);
     if (!s->selection_session)
       goto bad;
-  } else if (flow == 8) {
+  } else if (flow == BK_FLOW_DIALOGUE) {
     BkDialogueSessionConfig c = {.state = &s->dialogue,
                                  .camera = s->camera_owner,
                                  .common = s->c.common,
@@ -406,12 +410,16 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
   if (!s || !in || s->released || !s->active || !isfinite(seconds) ||
       seconds <= 0 || seconds > 1 || !isfinite(wall) || wall < 1 || wall > 1e12)
     return fail(e, "invalid frame input");
-  if (s->active == 0x60)
+  BkInput mapped;
+  if (!bk_ui_input(&mapped, in, &s->display, e))
+    return 0;
+  in = &mapped;
+  if (s->active == BK_FLOW_ALBUM)
     return bk_album_session_step(s->album_session,seconds,wall,in,e);
-  if (s->active == 0x30)
+  if (s->active == BK_FLOW_VOLUME)
     return bk_volume_session_step(s->volume_session,seconds,in,e);
-  int persistent_cursor = s->active == 1 || s->active == 0x38;
-  if (persistent_cursor || s->active == 0x18) {
+  int persistent_cursor = s->active == BK_FLOW_TITLE || s->active == BK_FLOW_SELECTION;
+  if (persistent_cursor || s->active == BK_FLOW_GALLERY) {
     BkInput pointer_input = *in;
     /* These menus already use d-pad edges to navigate and warp to items. */
     if (persistent_cursor)
@@ -444,7 +452,7 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
   }
   uint32_t now = (uint32_t)(uint64_t)(wall * 1000);
   float dt = (float)seconds, scale = s->c.viewport.width / 1280.f;
-  if (s->active == 1) {
+  if (s->active == BK_FLOW_TITLE) {
     BkTitleMenuBindings b = {s->c.common, s->c.flow, s->c.cursor, s->c.hover};
     BkTitleMenuOps ops = {s, sound, gain, warp, position, motion, release};
     BkTitleMenuInput input = {buttons(in), now, dt, scale, bk_volume_get(s->c.services.audio_volumes, BK_VOLUME_MUSIC, -900), 0};
@@ -454,7 +462,7 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
                                         s->c.viewport.width,
                                         s->c.viewport.height, e);
   }
-  if (s->active == 0x18) {
+  if (s->active == BK_FLOW_GALLERY) {
     BkGalleryMenuBindings b = {s->c.common, s->c.cursor};
     BkGalleryMenuOps ops = {s, sound, gallery_image, position};
     BkGalleryMenuInput input = {
@@ -482,7 +490,7 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
       s->gallery_result_valid = 1;
     return 1;
   }
-  if (s->active == 0x38) {
+  if (s->active == BK_FLOW_SELECTION) {
     BkSelectionSessionInput input = {
         .ui = {buttons(in), now, dt, scale, bk_volume_get(s->c.services.audio_volumes, BK_VOLUME_MUSIC, -900), bk_volume_get(s->c.services.audio_volumes, BK_VOLUME_VOICE, -700), 0, 1},
         .camera_buttons = (in->held & BK_BUTTON_CONFIRM) ? 1u : 0,
@@ -507,7 +515,7 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
     s->released = bk_selection_session_released(s->selection_session);
     return 1;
   }
-  if (s->active == 8) {
+  if (s->active == BK_FLOW_DIALOGUE) {
     BkDialogueSessionInput input = {.seconds = dt,
                                     .timestamp_ms = now,
                                     .timer_clock_ms = now,
@@ -520,49 +528,17 @@ int bk_front_end_step(BkFrontEnd *s, double seconds, double wall,
                                     .voice_volume = bk_volume_get(s->c.services.audio_volumes, BK_VOLUME_VOICE, -700)};
     return bk_dialogue_session_step(s->dialogue_session, &input, e);
   }
-  if (s->active == 0x48)
+  if (s->active == BK_FLOW_SPECIAL)
     return bk_special_session_step(s->special_session, dt, in, e);
   return fail(e, "unbound frame");
 }
 int bk_front_end_resize(BkFrontEnd *s, unsigned width, unsigned height,
                         char e[256]) {
-  BkViewport viewport;
-  if (!s || !s->c.viewport.width || !width || !height ||
-      width > 16384 || height > 16384 ||
-      !bk_camera_fit(&viewport, width, height, 4, 3)) {
+  if (!s || !bk_ui_extent(width, height) ||
+      !bk_camera_fit(&s->display, width, height, 4, 3)) {
     snprintf(e, 256, "front end: invalid resize viewport");
     return 0;
   }
-  float ratio = (float)viewport.width / s->c.viewport.width;
-  if (ratio != 1) {
-    if (s->active == 1) {
-      for (unsigned i = 0; i < BK_TITLE_SPRITES; ++i) {
-        if (!(s->title.loaded_mask & (1u << i)))
-          continue;
-        BkTitleSprite *p = &s->title.sprites[i];
-        /* Keep the constructor's truncated half extents in the hit boxes. */
-        for (unsigned axis = 0; axis < 2; ++axis) {
-          float origin = p->rect[axis] - (i ? p->half[axis] : 0);
-          p->rect[axis + 2] *= ratio;
-          p->half[axis] = (int32_t)(p->rect[axis + 2] / 2);
-          p->rect[axis] = origin * ratio + (i ? p->half[axis] : 0);
-        }
-      }
-    }
-    for (unsigned i = 0; i < 4; ++i)
-      s->c.cursor->sprite.rect[i] *= ratio;
-    for (unsigned i = 0; i < 2; ++i) {
-      s->pointer[i] *= ratio;
-      s->motion[i] *= ratio;
-      s->menu_pointer.position[i] *= ratio;
-      s->menu_pointer.motion[i] *= ratio;
-    }
-  }
-  if (s->active == 0x38 &&
-      !bk_selection_session_resize(s->selection_session, viewport.width,
-                                   viewport.height, e))
-    return 0;
-  s->c.viewport = viewport;
   return 1;
 }
 int bk_front_end_draw(BkFrontEnd *s, char e[256]) {
@@ -573,36 +549,36 @@ int bk_front_end_draw(BkFrontEnd *s, char e[256]) {
   if (!bk_front_end_resize(s, width, height, e)) {
     return 0;
   }
-  if (!bk_renderer_viewport(s->c.services.renderer, &s->c.viewport, e))
+  if (!bk_renderer_viewport(s->c.services.renderer, &s->display, e))
     return 0;
-  int ok = s->active == 1 ? bk_title_menu_render_draw(s->title_render, e)
-           : s->active == 0x18
+  int ok = s->active == BK_FLOW_TITLE ? bk_title_menu_render_draw(s->title_render, e)
+           : s->active == BK_FLOW_GALLERY
                ? bk_gallery_menu_render_draw(s->gallery_render, e)
-           : s->active == 0x38
+           : s->active == BK_FLOW_SELECTION
                ? bk_selection_session_draw(s->selection_session, e)
-           : s->active == 8 ? bk_dialogue_session_draw(s->dialogue_session, e)
-           : s->active == 0x60 ? bk_album_session_draw(s->album_session, e)
-           : s->active == 0x30 ? bk_volume_session_draw(s->volume_session, e)
-           : s->active == 0x48 ? bk_special_session_draw(s->special_session, e)
+           : s->active == BK_FLOW_DIALOGUE ? bk_dialogue_session_draw(s->dialogue_session, e)
+           : s->active == BK_FLOW_ALBUM ? bk_album_session_draw(s->album_session, e)
+           : s->active == BK_FLOW_VOLUME ? bk_volume_session_draw(s->volume_session, e)
+           : s->active == BK_FLOW_SPECIAL ? bk_special_session_draw(s->special_session, e)
                             : 0;
   return ok && bk_renderer_viewport(s->c.services.renderer, NULL, e);
 }
 int bk_front_end_after_present(BkFrontEnd *s, char e[256]) {
   if (!s || !s->active)
     return fail(e, "no submitted frame");
-  if (s->active == 0x60) {
+  if (s->active == BK_FLOW_ALBUM) {
     memcpy(s->pointer,bk_album_session_pointer(s->album_session)->position,sizeof(s->pointer));
     return 1;
   }
-  if (s->active == 0x30) {
+  if (s->active == BK_FLOW_VOLUME) {
     memcpy(s->pointer,bk_volume_session_pointer(s->volume_session)->position,sizeof(s->pointer));
     return 1;
   }
-  if (s->active == 0x38)
+  if (s->active == BK_FLOW_SELECTION)
     return bk_selection_session_after_present(s->selection_session, e);
-  if (s->active == 8)
+  if (s->active == BK_FLOW_DIALOGUE)
     return bk_dialogue_session_after_present(s->dialogue_session, e);
-  if (s->active == 0x48) {
+  if (s->active == BK_FLOW_SPECIAL) {
     const BkVirtualPointer *p = bk_special_session_pointer(s->special_session);
     memcpy(s->pointer, p->position, sizeof(s->pointer));
     return bk_special_session_after_present(s->special_session, e);

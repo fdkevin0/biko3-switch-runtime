@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/text_render.h"
 #include <stdlib.h>
 #include <string.h>
@@ -83,9 +84,7 @@ int bk_text_render_prepare(BkTextRender *t, const BkTextStyle *style,
                            char error[256]) {
   if (!t)
     return fail(error, "missing instance");
-  unsigned target_width, target_height;
-  bk_renderer_extent(t->renderer, &target_width, &target_height);
-  if (!width || !height || width > target_width || height > target_height)
+  if (!width || !height || !bk_ui_extent(width, height))
     return fail(error, "invalid viewport extent");
   BkTextDraw draw;
   int upload;

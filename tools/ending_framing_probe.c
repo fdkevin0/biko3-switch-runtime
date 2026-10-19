@@ -2,6 +2,7 @@
  * the implementation, with no production test-only setters or asset edits.
  * Normal story entries use4cf318. Other loader topologies are not asserted. */
 #include "../runtime/scene/ending_normal_session.c"
+#include "ui_probe_input.h"
 
 typedef struct { uint64_t submitted, consumed, hash; int hold; } FramingSink;
 typedef struct {
@@ -144,10 +145,9 @@ static int framing_run(const char *data, unsigned group, unsigned width,
     VERIFY(fabsf(out->head_ndc[0]) < 1 && fabsf(out->head_ndc[1]) < 1 &&
             out->head_ndc[2] > 0 && out->head_ndc[2] < 1);
   VERIFY(framing_present(scene, s, e));
-  float scale = (float)((double)s->viewport.width / 1280.0);
   BkInput hover = {.pointer_active = 1,
-                    .pointer_x = s->viewport.x + 1200 * scale,
-                    .pointer_y = s->viewport.y + 730 * scale};
+                    .pointer_x = probe_ui_x(&s->viewport, 1200),
+                    .pointer_y = probe_ui_y(&s->viewport, 730)};
   for (unsigned i = 0; i < 129; ++i)
     VERIFY(framing_tick(scene, s, hover, out, e));
   /* The recovered opening owns camera/FOV after common toolbar input. Wait
@@ -190,8 +190,8 @@ static int framing_run(const char *data, unsigned group, unsigned width,
     VERIFY(bk_ending_ui_control_rects(&s->ui, rects));
     const BkEndingControlRect *rect = rects + buttons[click];
     BkInput input = {.pointer_active = 1,
-                      .pointer_x = s->viewport.x + rect->x + rect->width * .5f,
-                      .pointer_y = s->viewport.y + rect->y + rect->height * .5f,
+                      .pointer_x = probe_ui_x(&s->viewport, rect->x + rect->width * .5f),
+                      .pointer_y = probe_ui_y(&s->viewport, rect->y + rect->height * .5f),
                       .pressed = BK_BUTTON_CONFIRM,
                       .held = BK_BUTTON_CONFIRM};
     VERIFY(framing_tick(scene, s, input, out, e));
@@ -244,8 +244,8 @@ static int framing_run(const char *data, unsigned group, unsigned width,
       BkEndingControlRect rects[BK_ENDING_CONTROL_RECTS];
       VERIFY(bk_ending_ui_control_rects(&s->ui, rects));
       BkInput preset = {.pointer_active = 1,
-          .pointer_x = s->viewport.x + rects[0].x + rects[0].width * .5f,
-          .pointer_y = s->viewport.y + rects[0].y + rects[0].height * .5f,
+          .pointer_x = probe_ui_x(&s->viewport, rects[0].x + rects[0].width * .5f),
+          .pointer_y = probe_ui_y(&s->viewport, rects[0].y + rects[0].height * .5f),
           .pressed = BK_BUTTON_CONFIRM, .held = BK_BUTTON_CONFIRM};
       VERIFY(framing_tick(scene, s, preset, out, e));
       ++out->clicks;
@@ -259,12 +259,12 @@ static int framing_run(const char *data, unsigned group, unsigned width,
     int32_t point[2];
     VERIFY(bk_ending_ui_project_target(&s->ui_pick, node, point, e));
     if (point[0] < 2 || point[1] < 2 ||
-        point[0] >= (int32_t)s->viewport.width * 9 / 10 ||
-        point[1] >= (int32_t)s->viewport.height - 2)
+        point[0] >= (int32_t)BK_UI_WIDTH * 9 / 10 ||
+        point[1] >= (int32_t)BK_UI_HEIGHT - 2)
       continue;
     BkInput aim = {.pointer_active = 1,
-                    .pointer_x = s->viewport.x + point[0],
-                    .pointer_y = s->viewport.y + point[1]};
+                    .pointer_x = probe_ui_x(&s->viewport, point[0]),
+                    .pointer_y = probe_ui_y(&s->viewport, point[1])};
     VERIFY(framing_tick(scene, s, aim, out, e));
     if (attempt < 8)
       fprintf(stderr, "aim group%u node%u selected=%d kind=%d state=%d\n", group,
@@ -342,7 +342,7 @@ static int framing_run(const char *data, unsigned group, unsigned width,
     uint32_t result = 0;
     VERIFY(frame_invoke(s, &call, &result, e));
     VERIFY(!memcmp(&expected, &s->camera, sizeof(expected)));
-    VERIFY(prepare_ui_geometry(s, s->viewport.width, s->viewport.height, e));
+    VERIFY(prepare_ui_geometry(s, BK_UI_WIDTH, BK_UI_HEIGHT, e));
     BkNodeReference anchor;
     VERIFY(bk_actor_forest_anchor_reference(forest, 1, &anchor, e));
     VERIFY(!memcmp(anchor.local, s->ui_camera_local, sizeof(anchor.local)));
@@ -365,8 +365,8 @@ static int framing_run(const char *data, unsigned group, unsigned width,
     VERIFY(bk_ending_ui_control_rects(&s->ui, rects));
     const BkEndingControlRect *rect = rects + 1;
     if (rect->x >= 0 && rect->y >= 0 &&
-        rect->x + rect->width <= s->viewport.width &&
-        rect->y + rect->height <= s->viewport.height)
+        rect->x + rect->width <= BK_UI_WIDTH &&
+        rect->y + rect->height <= BK_UI_HEIGHT)
       break;
     VERIFY(toolbar_wait++ < 180);
     VERIFY(framing_tick(scene, s, hover, out, e));
@@ -376,8 +376,8 @@ static int framing_run(const char *data, unsigned group, unsigned width,
     VERIFY(bk_ending_ui_control_rects(&s->ui, rects));
     const BkEndingControlRect *rect = rects + 1;
     BkInput input = {.pointer_active = 1,
-                      .pointer_x = s->viewport.x + rect->x + rect->width * .5f,
-                      .pointer_y = s->viewport.y + rect->y + rect->height * .5f,
+                      .pointer_x = probe_ui_x(&s->viewport, rect->x + rect->width * .5f),
+                      .pointer_y = probe_ui_y(&s->viewport, rect->y + rect->height * .5f),
                       .pressed = BK_BUTTON_CONFIRM,
                       .held = BK_BUTTON_CONFIRM};
     VERIFY(framing_tick(scene, s, input, out, e));

@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/pause_render.h"
 #include "scene/checkpoint_prompt.h"
 #include "scene/retry.h"
@@ -101,10 +102,8 @@ int bk_pause_render_prepare(BkPauseRender *r, const BkPauseFrame *f,
   if (!r || !f || !width || !height || f->count > BK_PAUSE_DRAWS)
     return fail(error, "invalid frame/extent");
   r->ready = 0;
-  unsigned tw, th;
-  bk_renderer_extent(r->renderer, &tw, &th);
-  if (width > tw || height > th)
-    return fail(error, "viewport exceeds target");
+  if (!bk_ui_extent(width, height))
+    return fail(error, "invalid logical canvas extent");
   for (unsigned i = 0; i < f->count; ++i) {
     const BkPauseDraw *d = &f->draws[i];
     const float *q = d->rect;

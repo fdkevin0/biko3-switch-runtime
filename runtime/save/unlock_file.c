@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "save/unlock_file.h"
-#include "save/file_replace_internal.h"
+#include "core/file.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,7 +47,7 @@ BkResourceResult bk_unlock_file_read(BkUnlockFile *f, BkUnlockTable *out,
     fail(e, "invalid read");
     return BK_RESOURCE_ERROR;
   }
-  if (!bk_save_file_recover(f->path, e))
+  if (!bk_file_recover(f->path, e))
     return BK_RESOURCE_ERROR;
   FILE *in = fopen(f->path, "rb");
   if (!in) {
@@ -97,7 +97,7 @@ int bk_unlock_file_store(BkUnlockFile *f, unsigned group,
     remove(temporary);
     return fail(e, "write/flush/close failed");
   }
-  if (!bk_save_file_replace(temporary, f->path, e)) {
+  if (!bk_file_replace(temporary, f->path, e)) {
     remove(temporary);
     return 0;
   }

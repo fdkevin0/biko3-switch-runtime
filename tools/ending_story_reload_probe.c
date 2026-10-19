@@ -1,3 +1,4 @@
+#include "ui_probe_input.h"
 /* Natural story normal -> secondary -> normal, with actual scene input,
  * clip clocks, consumed PCM, UI and GPU snapshots. The initial story entry
  * is explicit; no progress, phase, pending action or actor source is set by
@@ -68,7 +69,7 @@ static int story_normal_gesture(EndingNormalScene *s, BkInput *in, char e[256]) 
     for (int dy = -2; dy <= 2; ++dy)
       for (int dx = -2; dx <= 2; ++dx) {
         float x = (float)point[0] + dx, y = (float)point[1] + dy;
-        if (x < 2 || y < 2 || x >= s->viewport.width * .9f || y >= s->viewport.height - 2)
+        if (x < 2 || y < 2 || x >= BK_UI_WIDTH * .9f || y >= BK_UI_HEIGHT - 2)
           continue;
         BkEndingFrameState frame = s->state->frame;
         BkEndingUiSprite ring = s->ui.sprites[50];
@@ -84,8 +85,8 @@ static int story_normal_gesture(EndingNormalScene *s, BkInput *in, char e[256]) 
         if (hit && kind >= 0 && kind < 3 && selected >= 0 &&
             (!s->state->normal_processed[selected * 2] ||
              !s->state->normal_processed[selected * 2 + 1])) {
-          *in = (BkInput){.pointer_active = 1, .pointer_x = s->viewport.x + x,
-              .pointer_y = s->viewport.y + y};
+          *in = (BkInput){.pointer_active = 1, .pointer_x = probe_ui_x(&s->viewport, x),
+              .pointer_y = probe_ui_y(&s->viewport, y)};
           return 1;
         }
       }
@@ -121,27 +122,27 @@ static int story_secondary_gesture(EndingNormalScene *s, BkInput *in, char e[256
       for (int dx = -radius; dx <= radius; ++dx) {
         if (abs(dx) != radius && abs(dy) != radius) continue;
         int64_t x = (int64_t)center[0] + dx, y = (int64_t)center[1] + dy;
-        if (x < 0 || y < 0 || x >= s->viewport.width || y >= s->viewport.height) continue;
+        if (x < 0 || y < 0 || x >= BK_UI_WIDTH || y >= BK_UI_HEIGHT) continue;
         int hit = story_secondary_hit(s, (float)x, (float)y, 2, e);
         if (hit < 0) return -1;
         if (hit) {
           *in = (BkInput){.pointer_active = 1,
-              .pointer_x = s->viewport.x + (float)x, .pointer_y = s->viewport.y + (float)y};
+              .pointer_x = probe_ui_x(&s->viewport, (float)x), .pointer_y = probe_ui_y(&s->viewport, (float)y)};
           return 1;
         }
       }
   return 0;
 }
 static int story_toolbar_hover(EndingNormalScene *s, BkInput *in, char e[256]) {
-  float scale = (float)((double)s->viewport.width / 1280.0);
+  float scale = (float)((double)BK_UI_WIDTH / 1280.0);
   const float *r = s->ui.sprites[49].rect;
-  for (float y = fmaxf(r[1] + 2, 2); y < fminf(r[1] + r[3] - 2, s->viewport.height - 2); y += 4)
-    for (float x = s->viewport.width - 2; x > 1096 * scale; x -= 4) {
+  for (float y = fmaxf(r[1] + 2, 2); y < fminf(r[1] + r[3] - 2, BK_UI_HEIGHT - 2); y += 4)
+    for (float x = BK_UI_WIDTH - 2; x > 1096 * scale; x -= 4) {
       int miss = story_secondary_hit(s, x, y, 0, e);
       if (miss < 0) return 0;
       if (miss) {
-        *in = (BkInput){.pointer_active = 1, .pointer_x = s->viewport.x + x,
-                        .pointer_y = s->viewport.y + y};
+        *in = (BkInput){.pointer_active = 1, .pointer_x = probe_ui_x(&s->viewport, x),
+                        .pointer_y = probe_ui_y(&s->viewport, y)};
         return 1;
       }
     }
@@ -208,8 +209,8 @@ static int story_profile(BkRenderer *renderer, BkResourceStore *store,
   unsigned local_gestures = 0;
   uint32_t previous_keys = 0;
   for (; local_frames < 50000 && settle < 120; ++local_frames) {
-    BkInput in = {.pointer_active = 1, .pointer_x = s->viewport.x + 2,
-                   .pointer_y = s->viewport.y + 2};
+    BkInput in = {.pointer_active = 1, .pointer_x = probe_ui_x(&s->viewport, 2),
+                   .pointer_y = probe_ui_y(&s->viewport, 2)};
     int playing0, playing1;
     VERIFY(bk_audio_playing(audio, 0, &playing0) && bk_audio_playing(audio, 1, &playing1));
     sink.freeze = !reloads && s->state->frame.state_721ee0 == 5 &&
@@ -230,7 +231,8 @@ static int story_profile(BkRenderer *renderer, BkResourceStore *store,
             in.held = 0;
             in.released = BK_BUTTON_CONFIRM;
             held = 0;
-          } else in.pointer_motion_x = (local_frames & 1 ? 1.f : -1.f) * (side ? 10.f : 3.f);
+          } else in.pointer_motion_x = probe_ui_motion_x(&s->viewport,
+              (local_frames & 1 ? 1.f : -1.f) * (side ? 10.f : 3.f));
         }
       } else if (state == 1 && s->state->auxiliary.progress <= .49f && !playing1 && !s->state->open) {
         if (preset_wait) {
@@ -244,16 +246,16 @@ static int story_profile(BkRenderer *renderer, BkResourceStore *store,
             idle_wait = 0;
             ++out->gestures; ++local_gestures;
           } else if (++idle_wait >= 90) {
-            float scale = (float)((double)s->viewport.width / 1280.0);
-            in.pointer_x = s->viewport.x + 1200 * scale;
-            in.pointer_y = s->viewport.y + 730 * scale;
+            float scale = (float)((double)BK_UI_WIDTH / 1280.0);
+            in.pointer_x = probe_ui_x(&s->viewport, 1200 * scale);
+            in.pointer_y = probe_ui_y(&s->viewport, 730 * scale);
             BkEndingControlRect rects[BK_ENDING_CONTROL_RECTS];
             VERIFY(bk_ending_ui_control_rects(&s->ui, rects));
             const BkEndingControlRect *r = &rects[0];
-            if (r->x >= 0 && r->y >= 0 && r->x + r->width <= s->viewport.width &&
-                r->y + r->height <= s->viewport.height) {
-              in.pointer_x = s->viewport.x + r->x + r->width * .5f;
-              in.pointer_y = s->viewport.y + r->y + r->height * .5f;
+            if (r->x >= 0 && r->y >= 0 && r->x + r->width <= BK_UI_WIDTH &&
+                r->y + r->height <= BK_UI_HEIGHT) {
+              in.pointer_x = probe_ui_x(&s->viewport, r->x + r->width * .5f);
+              in.pointer_y = probe_ui_y(&s->viewport, r->y + r->height * .5f);
               in.pressed = in.held = BK_BUTTON_CONFIRM;
               preset_wait = 90;
               idle_wait = 0;
@@ -275,9 +277,9 @@ static int story_profile(BkRenderer *renderer, BkResourceStore *store,
               VERIFY(bk_ending_ui_control_rects(&s->ui, rects));
               const BkEndingControlRect *r = &rects[3];
               if (s->state->open && r->x >= 0 && r->y >= 0 &&
-                  r->x + r->width <= s->viewport.width && r->y + r->height <= s->viewport.height) {
-                in.pointer_x = s->viewport.x + r->x + r->width * .5f;
-                in.pointer_y = s->viewport.y + r->y + r->height * .5f;
+                  r->x + r->width <= BK_UI_WIDTH && r->y + r->height <= BK_UI_HEIGHT) {
+                in.pointer_x = probe_ui_x(&s->viewport, r->x + r->width * .5f);
+                in.pointer_y = probe_ui_y(&s->viewport, r->y + r->height * .5f);
                 in.pressed = in.held = BK_BUTTON_CONFIRM;
                 ++focus;
               }
@@ -295,8 +297,8 @@ static int story_profile(BkRenderer *renderer, BkResourceStore *store,
         unsigned choice = 0;
         while (choice < 3 && s->state->choices[choice] != 4) ++choice;
         VERIFY(choice < 3);
-        in.pointer_x = s->viewport.x + (float)s->state->points[choice][0];
-        in.pointer_y = s->viewport.y + (float)s->state->points[choice][1];
+        in.pointer_x = probe_ui_x(&s->viewport, (float)s->state->points[choice][0]);
+        in.pointer_y = probe_ui_y(&s->viewport, (float)s->state->points[choice][1]);
         in.released = BK_BUTTON_CONFIRM;
         ++menus;
       }

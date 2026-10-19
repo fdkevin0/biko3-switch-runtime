@@ -29,6 +29,7 @@
 #include "scene/system_audio.h"
 #include "core/camera.h"
 #include "core/input.h"
+#include "ui/canvas.h"
 #include "core/matrix.h"
 #include "core/random.h"
 #include "world/actor_pose.h"
@@ -53,6 +54,21 @@ typedef struct {
   BkEndingSpecialMaterial *special_materials;
 } EndingRetiredStage;
 
+typedef enum {
+  ENDING_ROLE_PRIMARY,
+  ENDING_ROLE_UPPER,
+  ENDING_ROLE_LOWER,
+  ENDING_ROLE_TRACK0,
+  ENDING_ROLE_TRACK1,
+  ENDING_ROLE_BACKGROUND,
+  ENDING_ROLE_COUNT
+} EndingActorRole;
+
+typedef struct {
+  BkActorPose *pose;
+  uint32_t registry, root;
+} EndingActorBinding;
+
 typedef struct {
   BkSceneServices services;
   BkEndingState diagnostic_state;
@@ -66,6 +82,7 @@ typedef struct {
   BkEndingTertiaryAssets *tertiary_assets;
   BkEndingSelectedAssets *selected_assets;
   BkEndingAuxiliaryAssets *auxiliary_assets;
+  EndingActorBinding actors[ENDING_ROLE_COUNT]; /* Borrow active stage only. */
   BkEndingNormalRender *render;
   BkEndingNormalRender *snapshot_render;
   EndingRetiredStage retired;
@@ -183,15 +200,7 @@ static BkActorForest *scene_forest(EndingNormalScene *s) {
       : bk_ending_normal_assets_forest(s->assets)) : NULL;
 }
 static BkActorPose *scene_primary(EndingNormalScene *s) {
-  return s ? (s->tertiary_assets
-      ? bk_ending_tertiary_assets_pose(s->tertiary_assets, 0)
-      : s->auxiliary_assets
-      ? bk_ending_auxiliary_assets_pose(s->auxiliary_assets, 0)
-      : s->secondary_assets
-      ? bk_ending_secondary_assets_pose(s->secondary_assets, 0)
-      : s->selected_assets
-      ? bk_ending_selected_assets_pose(s->selected_assets, 0)
-      : bk_ending_normal_assets_pose(s->assets, 0)) : NULL;
+  return s ? s->actors[ENDING_ROLE_PRIMARY].pose : NULL;
 }
 static int auxiliary_state4_prepare_actor(void *context, char e[256]) {
   EndingNormalScene *s = context;
@@ -237,43 +246,56 @@ static BkEndingCameraAssets *scene_cameras(EndingNormalScene *s) {
       ? bk_ending_selected_assets_cameras(s->selected_assets)
       : bk_ending_normal_assets_cameras(s->assets);
 }
-/*Logical roles: primary, upper, lower, track0, track1, background.*/
-static unsigned scene_legacy_role(const EndingNormalScene *s, unsigned role) {
-  static const unsigned normal[] = {0, 1, BK_MODEL_NONE, 2, 3, 4};
-  static const unsigned secondary[] = {0, BK_MODEL_NONE, BK_MODEL_NONE, 1, 2, 3};
-  static const unsigned selected[] = {0, BK_MODEL_NONE, BK_MODEL_NONE, 1, 2, 3};
-  return role < 6 ? (s->secondary_assets || s->auxiliary_assets ? secondary[role] :
-      s->selected_assets ? selected[role] : normal[role]) : BK_MODEL_NONE;
+/* Resolve loader-specific registries after the outer background is registered.
+ * These borrowed poses/roots remain valid until the active stage retires. */
+static void bind_scene_actors(EndingNormalScene *s) {
+  static const unsigned normal[ENDING_ROLE_COUNT] = {
+      0, 1, BK_MODEL_NONE, 2, 3, 4};
+  static const unsigned single[ENDING_ROLE_COUNT] = {
+      0, BK_MODEL_NONE, BK_MODEL_NONE, 1, 2, 3};
+  static const BkEndingTertiaryRole tertiary[ENDING_ROLE_COUNT] = {
+      BK_ENDING_TERTIARY_ASSET_PRIMARY, BK_ENDING_TERTIARY_ASSET_UPPER,
+      BK_ENDING_TERTIARY_ASSET_LOWER, BK_ENDING_TERTIARY_ASSET_TRACK0,
+      BK_ENDING_TERTIARY_ASSET_TRACK1, BK_ENDING_TERTIARY_ASSET_BACKGROUND};
+  memset(s->actors, 0, sizeof(s->actors));
+  for (unsigned role = 0; role < ENDING_ROLE_COUNT; ++role) {
+    EndingActorBinding *binding = &s->actors[role];
+    if (s->tertiary_assets) {
+      unsigned index = tertiary[role];
+      binding->pose = bk_ending_tertiary_assets_pose(s->tertiary_assets, index);
+      if (binding->pose) {
+        binding->registry = bk_ending_tertiary_assets_registry(s->tertiary_assets, index);
+        binding->root = bk_ending_tertiary_assets_root(s->tertiary_assets, index);
+      }
+      continue;
+    }
+    unsigned index = s->assets ? normal[role] : single[role];
+    if (index == BK_MODEL_NONE)
+      continue;
+    if (s->auxiliary_assets) {
+      binding->pose = bk_ending_auxiliary_assets_pose(s->auxiliary_assets, index);
+      binding->root = bk_ending_auxiliary_assets_root(s->auxiliary_assets, index);
+    } else if (s->secondary_assets) {
+      binding->pose = bk_ending_secondary_assets_pose(s->secondary_assets, index);
+      binding->root = bk_ending_secondary_assets_root(s->secondary_assets, index);
+    } else if (s->selected_assets) {
+      binding->pose = bk_ending_selected_assets_pose(s->selected_assets, index);
+      binding->root = bk_ending_selected_assets_root(s->selected_assets, index);
+    } else {
+      binding->pose = bk_ending_normal_assets_pose(s->assets, index);
+      binding->root = bk_ending_normal_assets_root(s->assets, index);
+    }
+    binding->registry = index;
+  }
 }
 static BkActorPose *scene_actor(EndingNormalScene *s, unsigned role) {
-  if (!s || role >= 6)
-    return NULL;
-  if (s->tertiary_assets)
-    return bk_ending_tertiary_assets_pose(s->tertiary_assets, role);
-  if (s->auxiliary_assets)
-    return bk_ending_auxiliary_assets_pose(s->auxiliary_assets, scene_legacy_role(s, role));
-  unsigned index = scene_legacy_role(s, role);
-  return index == BK_MODEL_NONE ? NULL : s->secondary_assets
-      ? bk_ending_secondary_assets_pose(s->secondary_assets, index)
-      : s->selected_assets ? bk_ending_selected_assets_pose(s->selected_assets, index)
-      : bk_ending_normal_assets_pose(s->assets, index);
+  return s && role < ENDING_ROLE_COUNT ? s->actors[role].pose : NULL;
 }
 static uint32_t scene_registry(EndingNormalScene *s, unsigned role) {
-  if (!scene_actor(s, role))
-    return BK_MODEL_NONE;
-  return s->tertiary_assets ? bk_ending_tertiary_assets_registry(s->tertiary_assets, role)
-                            : scene_legacy_role(s, role);
+  return scene_actor(s, role) ? s->actors[role].registry : BK_MODEL_NONE;
 }
 static uint32_t scene_root(EndingNormalScene *s, unsigned role) {
-  if (!scene_actor(s, role))
-    return 0;
-  if (s->tertiary_assets)
-    return bk_ending_tertiary_assets_root(s->tertiary_assets, role);
-  unsigned index = scene_legacy_role(s, role);
-  return s->auxiliary_assets ? bk_ending_auxiliary_assets_root(s->auxiliary_assets, index)
-                             : s->secondary_assets ? bk_ending_secondary_assets_root(s->secondary_assets, index)
-                             : s->selected_assets ? bk_ending_selected_assets_root(s->selected_assets, index)
-                             : bk_ending_normal_assets_root(s->assets, index);
+  return scene_actor(s, role) ? s->actors[role].root : 0;
 }
 
 static int fail(char e[256], const char *why) {
@@ -289,7 +311,7 @@ static int optional_primary_node(EndingNormalScene *s, uint32_t frame,
   if (!s || !out || !scene_forest(s))
     return fail(e, "optional node owner is missing");
   uint32_t node = frame == BK_MODEL_NONE ? 0 :
-      bk_actor_forest_node(scene_forest(s), scene_registry(s, 0), frame);
+      bk_actor_forest_node(scene_forest(s), scene_registry(s, ENDING_ROLE_PRIMARY), frame);
   if (node == BK_FRAME_NONE || node > INT32_MAX)
     return fail(e, "optional primary node is stale");
   *out = node;
@@ -343,6 +365,7 @@ static void release_resources(EndingNormalScene *s) {
   /* Logical release may already have handed the mixer slots to another
    * scene. Never clear them again while retiring the last GPU snapshot. */
   stop_audio(s, ignored);
+  memset(s->actors, 0, sizeof(s->actors));
   bk_ending_ui_batch_destroy(s->ui_batch);
   s->ui_batch = NULL;
   bk_ending_ui_render_destroy(s->ui_stage_render);
@@ -820,6 +843,7 @@ static int ui_reload_release(void *context, BkEndingLoader loader, char e[256]) 
       .tertiary = s->tertiary_assets, .selected = s->selected_assets,
       .auxiliary = s->auxiliary_assets, .render = s->render,
       .materials = s->materials, .special_materials = s->special_materials};
+  memset(s->actors, 0, sizeof(s->actors));
   s->assets = NULL;
   s->secondary_assets = NULL;
   s->tertiary_assets = NULL;
@@ -870,7 +894,7 @@ static int ui_reload_final_image(void *context, int create, unsigned group,
   BkEndingUi base = s->ui;
   BkEndingStageUi stage = s->stage_ui;
   if (!bk_ending_stage_ui_initialize(&base, &stage, BK_ENDING_UI_FINAL,
-        group, s->variant, s->viewport.width, e))
+        group, s->variant, BK_UI_WIDTH, e))
     return 0;
   BkEndingUiRender *render = bk_ending_ui_render_create_stage(
       s->services.renderer, s->services.resources, &stage, e);
@@ -990,7 +1014,7 @@ static int prepare_ui_geometry(EndingNormalScene *s, unsigned width,
     uint32_t frame = scene_node(s, i);
     if (frame == BK_MODEL_NONE)
       continue;
-    uint32_t node = bk_actor_forest_node(forest, scene_registry(s, 0), frame);
+    uint32_t node = bk_actor_forest_node(forest, scene_registry(s, ENDING_ROLE_PRIMARY), frame);
     const float *world = bk_actor_forest_world(forest, node);
     if (node == BK_FRAME_NONE || !world)
       return fail(e, "ending UI target node is not published");
@@ -1056,7 +1080,7 @@ static int ending_target_node(EndingNormalScene *s, unsigned index,
   uint32_t frame = scene_node(s, index);
   if (frame == BK_MODEL_NONE)
     return fail(e, "ending camera target is missing");
-  *node = bk_actor_forest_node(scene_forest(s), scene_registry(s, 0), frame);
+  *node = bk_actor_forest_node(scene_forest(s), scene_registry(s, ENDING_ROLE_PRIMARY), frame);
   return *node != BK_FRAME_NONE
              ? 1
              : fail(e, "ending camera target is not attached");
@@ -1155,7 +1179,7 @@ static int auxiliary_state4_camera(void *context, BkEndingOpeningCamera kind,
                                    uint32_t extra, uint32_t *result,
                                    char e[256]) {
   EndingNormalScene *s = context;
-  const uint32_t tracks[2] = {scene_registry(s, 3), scene_registry(s, 4)};
+  const uint32_t tracks[2] = {scene_registry(s, ENDING_ROLE_TRACK0), scene_registry(s, ENDING_ROLE_TRACK1)};
   BkEndingCameraAssets *assets = scene_cameras(s);
   BkActorForest *forest = scene_forest(s);
   uint32_t target_node;
@@ -1167,7 +1191,7 @@ static int auxiliary_state4_camera(void *context, BkEndingOpeningCamera kind,
     BkEndingCameraOpeningInput input = {s, control_key};
     if (!bk_ending_camera_assets_opening(
             assets, forest, tracks, s->camera_owner,
-            bk_actor_forest_node(forest, scene_registry(s, 0),
+            bk_actor_forest_node(forest, scene_registry(s, ENDING_ROLE_PRIMARY),
                                  bk_ending_auxiliary_assets_follow(
                                      s->auxiliary_assets)),
             s->active_seconds, &input, &complete, e))
@@ -1293,8 +1317,8 @@ static int auxiliary_state1_menu(void *context, int32_t selected, int32_t *out,
   if (!s || !out || selected < 0 || selected >= 39)
     return fail(e, "auxiliary state1 menu target is unavailable");
   BkEndingSecondaryMenuGeometry geometry = {
-      s->viewport.width, s->viewport.height,
-      (float)((double)s->viewport.width / 1280.0), s->ui.sprites[51].rect[2]};
+      BK_UI_WIDTH, BK_UI_HEIGHT,
+      (float)((double)BK_UI_WIDTH / 1280.0), s->ui.sprites[51].rect[2]};
   int32_t zone = -1;
   if (!bk_ending_secondary_menu_zone(&geometry, s->state->targets[selected],
                                      &zone, e))
@@ -1323,8 +1347,8 @@ static int auxiliary_state1_menu_zone(void *context, int32_t selected,
   if (!s || !out || selected < 0 || selected >= 39)
     return fail(e, "auxiliary state1 menu zone target is unavailable");
   BkEndingSecondaryMenuGeometry geometry = {
-      s->viewport.width, s->viewport.height,
-      (float)((double)s->viewport.width / 1280.0), s->ui.sprites[51].rect[2]};
+      BK_UI_WIDTH, BK_UI_HEIGHT,
+      (float)((double)BK_UI_WIDTH / 1280.0), s->ui.sprites[51].rect[2]};
   return bk_ending_secondary_menu_zone(&geometry, s->state->targets[selected],
                                        out, e);
 }
@@ -1797,7 +1821,7 @@ static int selected_target(void *context, unsigned node, float position[3],
   if (!s || !s->selected_assets || index == BK_MODEL_NONE || !position)
     return fail(e, "selected camera target is unavailable");
   uint32_t frame = scene_node(s, index);
-  uint32_t id = bk_actor_forest_node(scene_forest(s), scene_registry(s, 0), frame);
+  uint32_t id = bk_actor_forest_node(scene_forest(s), scene_registry(s, ENDING_ROLE_PRIMARY), frame);
   const float *world = bk_actor_forest_world(scene_forest(s), id);
   if (!world) return fail(e, "selected camera target is not published");
   memcpy(position, world + 12, sizeof(float) * 3);
@@ -1807,7 +1831,7 @@ static int selected_camera(void *context, BkEndingOpeningCamera kind,
                            int32_t choice, const uint32_t offset[3],
                            uint32_t extra, uint32_t *result, char e[256]) {
   EndingNormalScene *s = context;
-  const uint32_t tracks[2] = {scene_registry(s, 3), scene_registry(s, 4)};
+  const uint32_t tracks[2] = {scene_registry(s, ENDING_ROLE_TRACK0), scene_registry(s, ENDING_ROLE_TRACK1)};
   if (!s || !s->selected_assets || !result || !offset)
     return fail(e, "selected camera owner is unavailable");
   if (kind == BK_ENDING_OPENING_TRACK) {
@@ -1869,16 +1893,16 @@ static int selected_choose(void *context, const int32_t point[2], int32_t *resul
   EndingNormalScene *s = context;
   if (!s || !point || !result) return fail(e, "selected menu chooser is missing");
   BkEndingSecondaryMenuGeometry geometry = {
-      s->viewport.width, s->viewport.height,
-      (float)((double)s->viewport.width / 1280.0), s->ui.sprites[51].rect[2]};
+      BK_UI_WIDTH, BK_UI_HEIGHT,
+      (float)((double)BK_UI_WIDTH / 1280.0), s->ui.sprites[51].rect[2]};
   return bk_ending_secondary_menu_zone(&geometry, point, result, e);
 }
 static int selected_begin(void *context, char e[256]) {
   EndingNormalScene *s = context;
   if (!s || !s->selected_assets) return fail(e, "selected menu owner is missing");
   BkEndingSecondaryMenuGeometry geometry = {
-      s->viewport.width, s->viewport.height,
-      (float)((double)s->viewport.width / 1280.0), s->ui.sprites[51].rect[2]};
+      BK_UI_WIDTH, BK_UI_HEIGHT,
+      (float)((double)BK_UI_WIDTH / 1280.0), s->ui.sprites[51].rect[2]};
   return bk_ending_selected_menu(&geometry, &s->ui_pick,
       s->state->frame.camera_event,
       s->state->auxiliary.selection, s->state->frame.camera_cached, s->state->targets,
@@ -2055,7 +2079,7 @@ static int frame_invoke(void *context, const BkEndingCall *call,
         &presentation, s->state, s->active_seconds, e);
   }
   case BK_ENDING_COMMON_4D7AC4: {
-    unsigned width = s->viewport.width;
+    unsigned width = BK_UI_WIDTH;
     float scale = (float)((double)width / 1280.0);
     if (!bk_ending_ui_control_rects(&s->ui, s->control_rects))
       return fail(e, "live ending control bounds are unavailable");
@@ -2095,7 +2119,7 @@ static int frame_invoke(void *context, const BkEndingCall *call,
   case BK_ENDING_STAGE_4DB608: {
     if (!s->assets)
       return fail(e, "normal controller requires its own assets");
-    if (!prepare_ui_geometry(s, s->viewport.width, s->viewport.height, e))
+    if (!prepare_ui_geometry(s, BK_UI_WIDTH, BK_UI_HEIGHT, e))
       return 0;
     BkEndingNormalControllerScene controller = {
         .assets = s->assets, .audio = s->audio, .state = s->state,
@@ -2135,7 +2159,7 @@ static int frame_invoke(void *context, const BkEndingCall *call,
   case BK_ENDING_STAGE_47A5D0: {
     if (!s->secondary_assets || !s->secondary_controller ||
         !s->secondary_presentation ||
-        !prepare_ui_geometry(s, s->viewport.width, s->viewport.height, e))
+        !prepare_ui_geometry(s, BK_UI_WIDTH, BK_UI_HEIGHT, e))
       return fail(e, "secondary controller owners are unavailable");
     BkEndingSecondaryControllerScene controller = {
         s->secondary_assets, s->audio, s->state, s->secondary_controller,
@@ -2143,7 +2167,7 @@ static int frame_invoke(void *context, const BkEndingCall *call,
         &s->normal_controller->control.action_kind,
         &s->normal_controller->control.action_column,
         s->camera_owner, s->transitions_owner, &s->presets, &s->ui, &s->ui_pick,
-        s->viewport.width, s->viewport.height, &s->previous_flow,
+        BK_UI_WIDTH, BK_UI_HEIGHT, &s->previous_flow,
         &s->voice_volume, s->random, s, control_key};
     return bk_ending_secondary_controller_scene_step(
         &controller, &call->input, s->active_seconds, e);
@@ -2161,12 +2185,12 @@ static int frame_invoke(void *context, const BkEndingCall *call,
   }
   case BK_ENDING_STAGE_476720: {
     if (!s->tertiary_assets || !s->tertiary_controller || !s->records ||
-        !prepare_ui_geometry(s, s->viewport.width, s->viewport.height, e))
+        !prepare_ui_geometry(s, BK_UI_WIDTH, BK_UI_HEIGHT, e))
       return fail(e, "third controller owners are unavailable");
     const BkEndingTertiaryConfig *config =
         bk_ending_tertiary_assets_config(s->tertiary_assets);
     BkEndingRetainedStage2 *retained = &s->state->retained.stage2;
-    float scale = (float)((double)s->viewport.width / 1280.0);
+    float scale = (float)((double)BK_UI_WIDTH / 1280.0);
     BkEndingTertiaryActionBindings bindings = {
       .control = {
         .frame = &s->state->frame, .control = &s->state->control,
@@ -2189,7 +2213,7 @@ static int frame_invoke(void *context, const BkEndingCall *call,
       .assets = s->tertiary_assets, .audio = s->audio,
       .retained = s->tertiary_controller, .transitions = s->transitions_owner,
       .presets = &s->presets, .ui = &s->ui, .geometry = &s->ui_pick,
-      .width = s->viewport.width, .height = s->viewport.height,
+      .width = BK_UI_WIDTH, .height = BK_UI_HEIGHT,
       .speech_names = s->state->speech_names, .targets = s->state->targets,
       .points = s->state->points,
       .action_kind = &s->normal_controller->control.action_kind,
@@ -2360,7 +2384,7 @@ static int frame_invoke(void *context, const BkEndingCall *call,
                                        ? 2
                                        : 1),
              sizeof(offset));
-    const uint32_t tracks[2] = {scene_registry(s, 3), scene_registry(s, 4)};
+    const uint32_t tracks[2] = {scene_registry(s, ENDING_ROLE_TRACK0), scene_registry(s, ENDING_ROLE_TRACK1)};
     unsigned buttons = (s->input.held & BK_BUTTON_CAMERA_ORBIT ? 1u : 0u) |
                        (s->input.held & BK_BUTTON_CAMERA_ADJUST ? 2u : 0u);
     /* L/R replace the mouse-button modifiers. Convert both stick axes to
@@ -2773,8 +2797,10 @@ static int normal_load(void *context, BkEndingLoader loader, int32_t argument,
       goto bad;
     s->render = bk_ending_normal_render_create_special(
         s->services.renderer, s->services.resources, s->assets, (int32_t)s->now_ms, e);
-    s->materials = bk_material_pose_create(bk_actor_pose_model(scene_primary(s)), e);
+    s->materials = bk_material_pose_create(bk_actor_pose_model(
+        bk_ending_normal_assets_pose(s->assets, 0)), e);
   }
+  bind_scene_actors(s);
   if (!s->render)
     goto bad;
   if (s->has_retained_lights
@@ -2799,7 +2825,7 @@ static int normal_load(void *context, BkEndingLoader loader, int32_t argument,
         bk_volume_get(s->services.audio_volumes, BK_VOLUME_MUSIC, -900), e);
   if (!s->audio)
     goto bad;
-  unsigned width = s->viewport.width;
+  unsigned width = BK_UI_WIDTH;
   if (!bk_ending_stage_ui_initialize(&s->ui, &s->stage_ui,
                                      stage_kind,
                                      s->state->frame.group, variant, width, e) ||
@@ -2881,7 +2907,7 @@ static int normal_load(void *context, BkEndingLoader loader, int32_t argument,
     s->state->frame.camera_cached = -1;
     s->state->frame.camera_mode = 5;
     s->state->retained.normal.follow_target = bk_actor_forest_node(
-        scene_forest(s), scene_registry(s, 0),
+        scene_forest(s), scene_registry(s, ENDING_ROLE_PRIMARY),
         bk_ending_auxiliary_assets_follow(s->auxiliary_assets));
     if (s->state->retained.normal.follow_target == BK_FRAME_NONE)
       goto bad;
@@ -2919,7 +2945,7 @@ static int normal_load(void *context, BkEndingLoader loader, int32_t argument,
     s->state->control.target_choice = 0;
     s->state->frame.camera_mode = 5;
     s->state->retained.normal.follow_target = bk_actor_forest_node(scene_forest(s),
-        scene_registry(s, 0), bk_ending_tertiary_assets_follow(s->tertiary_assets));
+        scene_registry(s, ENDING_ROLE_PRIMARY), bk_ending_tertiary_assets_follow(s->tertiary_assets));
     if (s->state->retained.normal.follow_target == BK_FRAME_NONE) {
       fail(e, "third loader follow node is unavailable");
       goto bad;
@@ -3016,7 +3042,7 @@ static int prepare_scene_draw(EndingNormalScene *s, char e[256]) {
   BkFog fog = {0};
   /*Native roots721b28/2c/34 are primary/upper/background. Third's lower
    *body is visited through the real hierarchy, not a fabricated extra pass.*/
-  uint32_t roots[3] = {scene_root(s, 0), scene_root(s, 1), scene_root(s, 5)};
+  uint32_t roots[3] = {scene_root(s, ENDING_ROLE_PRIMARY), scene_root(s, ENDING_ROLE_UPPER), scene_root(s, ENDING_ROLE_BACKGROUND)};
   if (!roots[0] || !roots[2] || roots[0] == BK_FRAME_NONE ||
       roots[1] == BK_FRAME_NONE || roots[2] == BK_FRAME_NONE)
     return fail(e, "ending draw root is unavailable");
@@ -3109,7 +3135,7 @@ static int prepare_frame(EndingNormalScene *s, float seconds, char e[256]) {
     return 0;
   s->snapshot_render = s->render;
   s->snapshot_ui_only = s->final_image;
-  if (!prepare_ui_frame(s, seconds, s->viewport.width, s->viewport.height, e))
+  if (!prepare_ui_frame(s, seconds, BK_UI_WIDTH, BK_UI_HEIGHT, e))
     return 0;
   s->pending = 1;
   s->valid = 1;
@@ -3136,10 +3162,13 @@ static int step(void *context, double seconds, const BkInput *input,
     return fail(e, "ending scene is stopped");
   if (!s || !input || s->pending || s->failed)
     return fail(e, "previous ending snapshot not presented");
+  BkInput mapped;
+  BkViewport canvas = bk_ui_canvas();
   if (!isfinite(seconds) || seconds <= 0 || seconds > 1 ||
-      !bk_virtual_pointer_step(&s->pointer, &s->viewport, input, seconds, e))
+      !bk_ui_input(&mapped, input, &s->viewport, e) ||
+      !bk_virtual_pointer_step(&s->pointer, &canvas, &mapped, seconds, e))
     return fail(e, "invalid ending pointer input/time");
-  s->input = *input;
+  s->input = mapped;
   s->failed = 1;
   if (!prepare_frame(s, (float)seconds, e))
     return 0;
@@ -3162,7 +3191,10 @@ static int draw(void *context, const BkSceneFrame *frame, char e[256]) {
   }
   if (!bk_renderer_viewport(s->services.renderer, &s->viewport, e))
     return 0;
-  int ok = (!s->snapshot_render || bk_ending_normal_render_draw(s->snapshot_render, e)) &&
+  int ok = (!s->snapshot_render ||
+            (bk_ending_normal_render_set_viewports(s->snapshot_render,
+                 &s->viewport, &s->special_viewport, e) &&
+             bk_ending_normal_render_draw(s->snapshot_render, e))) &&
            bk_ending_ui_batch_draw(s->ui_batch, e);
   char restore_error[256];
   int restored = bk_renderer_viewport(s->services.renderer, NULL,
@@ -3288,8 +3320,8 @@ static BkScene *create_entry(const BkSceneServices *services, unsigned group,
     fail(e, "cannot fit ending content viewport");
     goto bad;
   }
-  width = s->viewport.width;
-  height = s->viewport.height;
+  width = BK_UI_WIDTH;
+  height = BK_UI_HEIGHT;
   float scale = (float)((double)width / 1280.0);
   BkEndingStateOps state_ops = {s, warp};
   if (!bk_menu_camera_dialogue(s->camera_owner) ||

@@ -61,9 +61,6 @@ const char *bk_selection_image(unsigned slot, uint8_t special);
  * including skipped sprites. Actor/camera/voice resources owned separately. */
 int bk_selection_ui_initialize(BkSelectionUi *, unsigned width, uint8_t special,
                                int32_t music_master, char error[256]);
-/* Resize loaded geometry and cached pointer only; retain animation/state. */
-int bk_selection_ui_resize(BkSelectionUi *, unsigned old_width,
-                           unsigned width, char error[256]);
 /*504335: advances/captures UI, then samples pointer and shared cursor. The
  * returned immutable frame must be used even if control releases resources.
  * Called after3D actor draw, before504802 control. */

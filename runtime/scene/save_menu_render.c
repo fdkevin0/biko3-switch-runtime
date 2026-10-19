@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/save_menu_render.h"
 #include <math.h>
 #include <stdlib.h>
@@ -108,9 +109,7 @@ int bk_save_menu_render_prepare(BkSaveMenuRender *r, const BkSaveMenuFrame *f,
       !height)
     return fail(e, "invalid snapshot");
   r->ready = 0;
-  unsigned tw, th;
-  bk_renderer_extent(r->renderer, &tw, &th);
-  if (width > tw || height > th)
+  if (!bk_ui_extent(width, height))
     return fail(e, "invalid extent");
   for (unsigned i = 0; i < f->count; ++i) {
     const BkPauseDraw *d = &f->draws[i];

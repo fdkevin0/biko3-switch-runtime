@@ -1,3 +1,4 @@
+#include "ui_probe_input.h"
 /*Actual Japanese selected/auxiliary node owners, projection and visibility.
  *Action8 and auxiliary idle are explicit boundaries, not a story completion.*/
 #define main selected_session_regression_main
@@ -85,13 +86,13 @@ static int node_profile(BkRenderer *renderer, BkResourceStore *store,
         NODE_CHECK(prepare_scene_draw(s, e) && probe_present(scene, renderer, e));
       }
     }
-    NODE_CHECK(prepare_ui_geometry(s, s->viewport.width, s->viewport.height, e));
+    NODE_CHECK(prepare_ui_geometry(s, BK_UI_WIDTH, BK_UI_HEIGHT, e));
     if (expected) {
       /*Search actual viewport pixels. The picker uses the real cached
        *worlds/projection/radius, with no injected target coordinates.*/
       int32_t picked = 0, point[2] = {-1, -1};
-      for (unsigned y = 0; point[0] < 0 && y < s->viewport.height; ++y)
-        for (unsigned x = 0; x < s->viewport.width; ++x) {
+      for (unsigned y = 0; point[0] < 0 && y < BK_UI_HEIGHT; ++y)
+        for (unsigned x = 0; x < BK_UI_WIDTH; ++x) {
           float pointer[] = {(float)x, (float)y};
           NODE_CHECK(stage ? auxiliary_state1_pick(s, pointer, 4, &picked, e)
                            : selected_pick(s, pointer, &picked, e));
@@ -107,8 +108,8 @@ static int node_profile(BkRenderer *renderer, BkResourceStore *store,
         NODE_CHECK(auxiliary_state1_audio(s, &pause, &playing, e));
         if (stage) s->state->control.state_721eec = 1;
         else s->state->auxiliary.gate = 1;
-        BkInput input = {.pointer_active = 1, .pointer_x = s->viewport.x + point[0],
-            .pointer_y = s->viewport.y + point[1],
+        BkInput input = {.pointer_active = 1, .pointer_x = probe_ui_x(&s->viewport, point[0]),
+            .pointer_y = probe_ui_y(&s->viewport, point[1]),
             .pressed = BK_BUTTON_CONFIRM, .held = BK_BUTTON_CONFIRM};
         NODE_CHECK(probe_input_tick(scene, s, &out->timeline, &input, e));
         NODE_CHECK(s->state->frame.camera_event == 2);

@@ -1,4 +1,5 @@
 #include "platform/platform.h"
+#include "platform/sdl_input.h"
 #include "render/window_surface.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
@@ -180,17 +181,6 @@ static uint32_t gamepad_buttons(SDL_Gamepad *pad) {
     result |= BK_BUTTON_CAMERA_ADJUST;
   return result;
 }
-
-static float axis_value(SDL_Gamepad *pad, SDL_GamepadAxis axis) {
-  Sint16 value = SDL_GetGamepadAxis(pad, axis);
-  float f = (float)value / 32768.0f;
-  if (f < -.12f)
-    return (f + .12f) / .88f;
-  if (f > .12f)
-    return (f - .12f) / .88f;
-  return 0;
-}
-
 static void poll_events(BkPlatform *p) {
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
@@ -205,10 +195,8 @@ static void poll_events(BkPlatform *p) {
       remove_gamepad(p, event.gdevice.which);
       break;
     case SDL_EVENT_MOUSE_MOTION: {
-      int w = 1, h = 1;
-      SDL_GetWindowSizeInPixels(p->window, &w, &h);
-      float sx = (float)p->width / (float)w;
-      float sy = (float)p->height / (float)h;
+      float sx, sy;
+      bk_sdl_pointer_scale(p->window, p->width, p->height, &sx, &sy);
       p->mouse_x = event.motion.x * sx;
       p->mouse_y = event.motion.y * sy;
       p->mouse_moved = 1;
@@ -440,10 +428,10 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
   for (unsigned i = 0; i < p->pad_count; ++i) {
     SDL_Gamepad *pad = p->pads[i];
     held |= gamepad_buttons(pad);
-    float lx = axis_value(pad, SDL_GAMEPAD_AXIS_LEFTX);
-    float ly = -axis_value(pad, SDL_GAMEPAD_AXIS_LEFTY);
-    float rx = axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTX);
-    float ry = -axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTY);
+    float lx = bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_LEFTX);
+    float ly = -bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_LEFTY);
+    float rx = bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTX);
+    float ry = -bk_sdl_axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTY);
     if (fabsf(lx) + fabsf(ly) > fabsf(move_x) + fabsf(move_y)) {
       move_x = lx;
       move_y = ly;
@@ -458,10 +446,8 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
 
   float mx = 0, my = 0;
   SDL_MouseButtonFlags mouse = SDL_GetMouseState(&mx, &my);
-  int window_w = 1, window_h = 1;
-  SDL_GetWindowSizeInPixels(p->window, &window_w, &window_h);
-  float sx = (float)p->width / (float)(window_w > 0 ? window_w : 1);
-  float sy = (float)p->height / (float)(window_h > 0 ? window_h : 1);
+  float sx, sy;
+  bk_sdl_pointer_scale(p->window, p->width, p->height, &sx, &sy);
   if (mouse & (SDL_BUTTON_LMASK | SDL_BUTTON_RMASK)) {
     p->mouse_x = mx * sx;
     p->mouse_y = my * sy;

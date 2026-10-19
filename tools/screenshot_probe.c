@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
       {1, 1, .8f, 1, 1, 1, 1, 1, 1},   {-1, -1, .8f, 0, 0, 1, 1, 1, 1},
       {1, 1, .8f, 1, 1, 1, 1, 1, 1},   {-1, 1, .8f, 0, 1, 1, 1, 1, 1}};
   BkViewport crop = {32, 24, 576, 432};
-  BkScreenshotRequest request = {shot, crop};
+  BkScreenshotRequest request = {.screenshot=shot, .crop=crop};
   BkAudioSink sink = {&audio_frames, 48000, 240, 960, audio_submit, audio_poll};
   audio = bk_audio_create(&sink, e);
   CHECK(audio);
@@ -274,6 +274,38 @@ int main(int argc, char **argv) {
   int32_t inventory[5];
   CHECK(bk_capture_files_count_photos(files, inventory, e));
   CHECK(!memcmp(inventory, (int32_t[]){2, 2, 2, 3, 2}, sizeof(inventory)));
+  /* A viewport request may be flushed on the next frame after resize.
+   * Fixed physical crops keep their separate public contract. */
+  const unsigned sizes[][2] = {{320,240},{1000,600},{640,480}};
+  for (unsigned i=0;i<sizeof(sizes)/sizeof(*sizes);++i) {
+    unsigned w,h; BkViewport before;
+    bk_renderer_extent(r,&w,&h);
+    CHECK(bk_camera_fit(&before,w,h,4,3));
+    CHECK(bk_screenshot_configure(shot,0,0,&before,e) &&
+          bk_screenshot_follow_viewport(shot,e) &&
+          bk_screenshot_trigger(shot,e));
+    CHECK(bk_renderer_resize(r,sizes[i][0],sizes[i][1],e));
+    CHECK(bk_renderer_begin(r,e) &&
+          bk_renderer_draw(r,bg,quad,6,bk_identity,e) &&
+          service.capture(service.context,e) && bk_renderer_end(r,e));
+    BkViewport after;
+    CHECK(bk_camera_fit(&after,sizes[i][0],sizes[i][1],4,3));
+    snprintf(path,sizeof(path),"%s/sy_99.bmp",argv[2]);
+    CHECK(load_image(path,&written,e));
+    CHECK(written.width==after.width && written.height==after.height);
+    bk_image_free(&written);
+    BkViewport fixed={7,9,100,80};
+    CHECK(bk_screenshot_request(shot,0,0,&fixed,e));
+    CHECK(bk_renderer_resize(r,sizes[i][0]+40,sizes[i][1]+40,e));
+    CHECK(bk_renderer_begin(r,e) &&
+          bk_renderer_draw(r,bg,quad,6,bk_identity,e) &&
+          service.capture(service.context,e) && bk_renderer_end(r,e));
+    CHECK(load_image(path,&written,e));
+    CHECK(written.width==100 && written.height==80);
+    bk_image_free(&written);
+  }
+  CHECK(clock.reads==11);
+  puts("PASS screenshot resize: pending content crop follows shrink/grow/letterbox; fixed crop retained");
   printf("PASS screenshot: 5 pause replacements +5 photos, %u RGB bytes exact, "
          "%u later-HUD pixels excluded; 5 live-group retries +1 detached "
          "photo, invalid photo group ignored for pause, 11-file inventory\n",

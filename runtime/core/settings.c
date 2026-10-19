@@ -1,11 +1,13 @@
 #include "core/settings.h"
+#include "core/file.h"
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define SETTINGS_FILE "settings.cfg"
-#define SETTINGS_MAX_LINE 512
+#define SETTINGS_MAX_LINE (BK_SETTINGS_PATH_MAX + sizeof("game_path=\r\n"))
 
 static int clamp_int(int value, int low, int high) {
   return value < low ? low : value > high ? high : value;
@@ -25,8 +27,10 @@ static int parse_bool(const char *text, int *out) {
 
 static int parse_int(const char *text, int *out) {
   char *end = NULL;
+  errno = 0;
   long value = strtol(text, &end, 10);
-  if (!end || *end || end == text)
+  if (errno == ERANGE || !end || *end || end == text || value < INT_MIN ||
+      value > INT_MAX)
     return 0;
   *out = (int)value;
   return 1;
@@ -70,6 +74,8 @@ int bk_settings_load(BkSettings *settings, const char *root, char error[256]) {
     snprintf(error, 256, "settings: path too long");
     return 0;
   }
+  if (!bk_file_recover(path, error))
+    return 0;
   FILE *stream = fopen(path, "rb");
   if (!stream) {
     if (errno == ENOENT)
@@ -82,6 +88,14 @@ int bk_settings_load(BkSettings *settings, const char *root, char error[256]) {
   unsigned line_number = 0;
   while (fgets(line, sizeof(line), stream)) {
     ++line_number;
+    if (!strchr(line, '\n') && !feof(stream)) {
+      int next = fgetc(stream);
+      if (next != EOF) {
+        snprintf(error, 256, "settings: line %u too long", line_number);
+        fclose(stream);
+        return 0;
+      }
+    }
     char *text = trim(line);
     if (!*text || *text == '#' || *text == ';')
       continue;
@@ -174,9 +188,7 @@ int bk_settings_save(const BkSettings *settings, const char *root,
     remove(temporary);
     return 0;
   }
-  if (rename(temporary, path) != 0) {
-    snprintf(error, 256, "settings: cannot replace %.200s: %s", path,
-             strerror(errno));
+  if (!bk_file_replace(temporary, path, error)) {
     remove(temporary);
     return 0;
   }

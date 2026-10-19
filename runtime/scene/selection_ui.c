@@ -7,23 +7,6 @@ static int fail(char e[256], const char *why) {
   snprintf(e, 256, "selection UI: %s", why);
   return 0;
 }
-int bk_selection_ui_resize(BkSelectionUi *s, unsigned old_width,
-                           unsigned width, char e[256]) {
-  if (!s || !old_width || !width || old_width > 16384 || width > 16384)
-    return fail(e, "invalid resize extent");
-  if (width == old_width)
-    return 1;
-  float ratio = (float)width / old_width;
-  for (unsigned i = 0; i < BK_SELECTION_SPRITES; ++i)
-    if (s->loaded & (UINT64_C(1) << i))
-      for (unsigned j = 0; j < 4; ++j)
-        s->sprites[i].rect[j] *= ratio;
-  for (unsigned i = 0; i < 2; ++i) {
-    s->pointer[i] *= ratio;
-    s->motion[i] *= ratio;
-  }
-  return 1;
-}
 static int present(unsigned i, uint8_t special) {
   return special == 1 ? ((i >= 23 && i <= 26) || i == 41 || i == 47)
                       : (i >= 1 && i <= 41);

@@ -15,7 +15,7 @@ typedef struct BkEndingNormalRender BkEndingNormalRender;
 /*Real registry stages used by ending reload. RESET retains device light
  * state; SELECT reconstructs BK3_L groups; ENABLE is the historical enum
  * name for4a4438 ambient initialization, not an all-lights-on command.
- * Already prepared view descriptors remain immutable for pure redraw. */
+ * Prepared geometry/light descriptors remain immutable for pure redraw. */
 int bk_ending_normal_render_relight(BkEndingNormalRender *,
                                     BkEndingReloadLight, char error[256]);
 /*At stage replacement, preserve device state of retained background models
@@ -154,6 +154,12 @@ int bk_ending_normal_render_prepare_regular(
     BkEndingNormalRender *, const BkDrawDispatch *, const BkMenuCamera *,
     const BkFog *, const BkMaterialPose *primary_materials,
     const int32_t *bom_disabled, size_t count, char error[256]);
+/* Relocate a prepared dual-view snapshot after target resize, including a
+ * retired stage. Changes only physical viewports, never geometry/state/time.
+ * Invalid rectangles preserve both old viewports. Regular snapshots consume
+ * the caller's active viewport, so these arguments are unused for them. */
+int bk_ending_normal_render_set_viewports(BkEndingNormalRender *,
+    const BkViewport *main, const BkViewport *special, char error[256]);
 int bk_ending_normal_render_draw(BkEndingNormalRender *, char error[256]);
 /* Borrowed inspection only; actor IDs match the CPU owner: normal0/1/4,
  * independent secondary0/3; third uses its actual registered primary,

@@ -37,7 +37,16 @@ static int image(void *p, unsigned slot, const char *name, char e[256]) {
   return bk_special_ui_render_image(((BkSpecialSession *)p)->ui, slot, name, e);
 }
 static int capture(void *p, BkSpecialCapture op, char e[256]) {
-  return bk_special_capture_call(&((BkSpecialSession *)p)->capture, op, e);
+  BkSpecialSession *s = p;
+  if (op == BK_SPECIAL_CAPTURE_CONFIGURE) {
+    unsigned width, height;
+    bk_renderer_extent(s->renderer, &width, &height);
+    if (!bk_camera_fit(&s->capture.crop, width, height, 4, 3))
+      return fail(e, "invalid physical capture viewport");
+  }
+  return bk_special_capture_call(&s->capture, op, e) &&
+         (op != BK_SPECIAL_CAPTURE_CONFIGURE ||
+          bk_screenshot_follow_viewport(s->capture.screenshot, e));
 }
 static int position(void *p, float out[2], char e[256]) {
   (void)e; memcpy(out, ((BkSpecialSession *)p)->pointer.position, 8); return 1;

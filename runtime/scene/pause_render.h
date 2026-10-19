@@ -20,7 +20,8 @@ BkPauseRender *bk_pause_render_create_checkpoint(BkRenderer *,
                                                  char error[256]);
 void bk_pause_render_destroy(BkPauseRender *);
 /* The backdrop snapshot may be prepended to the UI snapshot in the same frame.
- * Geometry is captured in logical viewport pixels. The caller sets viewport. */
+ * Geometry and width/height use logical canvas units. Caller sets the
+ * physical viewport. */
 int bk_pause_render_prepare(BkPauseRender *, const BkPauseFrame *,
                             unsigned width, unsigned height, char error[256]);
 int bk_pause_render_draw(BkPauseRender *, char error[256]);

@@ -6,6 +6,7 @@
 #define _DARWIN_C_SOURCE
 #endif
 #include "app/save_preview.h"
+#include "ui/canvas.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,6 +66,23 @@ static BkInput click(float x, float y) {
                    .pointer_y = y * .5f,
                    .pressed = BK_BUTTON_CONFIRM};
 }
+static int resize_menu(BkScene *scene, BkRenderer *renderer, BkAudio *audio,
+                       BkSavePreviewState *state, BkMenuCursor *cursor,
+                       char e[256]) {
+  if (!tick(scene, renderer, audio, (BkInput){0}, e)) return 0;
+  const unsigned sizes[][2] = {{320,240},{1280,720},{333,555},{640,480}};
+  for (unsigned i=0;i<sizeof(sizes)/sizeof(*sizes);++i) {
+    BkSavePreviewState frozen=*state;
+    BkMenuCursor frozen_cursor=*cursor;
+    unsigned w=sizes[i][0],h=sizes[i][1];
+    if (!bk_renderer_resize(renderer,w,h,e) ||
+        !bk_scene_resize(scene,w,h,e) || !draw(scene,renderer,e) ||
+        memcmp(state,&frozen,sizeof(frozen)) ||
+        memcmp(cursor,&frozen_cursor,sizeof(frozen_cursor)) ||
+        !tick(scene,renderer,audio,(BkInput){0},e)) return 0;
+  }
+  return 1;
+}
 static int persistent_pointer(BkScene *scene, BkRenderer *r, BkAudio *audio,
                               BkSavePreviewState *state, BkMenuCursor *cursor,
                               char e[256]) {
@@ -77,11 +95,11 @@ static int persistent_pointer(BkScene *scene, BkRenderer *r, BkAudio *audio,
   if (!tick(scene, r, audio, (BkInput){.pointer_active = 1,
               .pointer_x = 300, .pointer_y = 200}, e) ||
       !tick(scene, r, audio, (BkInput){.move_x = 1}, e) ||
-      state->control.cursor[0] != 380 || state->control.cursor[1] != 200 ||
+      state->control.cursor[0] != 760 || state->control.cursor[1] != 400 ||
       !tick(scene, r, audio, (BkInput){.move_y = 1, .held = BK_BUTTON_SLOW}, e) ||
-      state->control.cursor[0] != 380 || state->control.cursor[1] != 180 ||
+      state->control.cursor[0] != 760 || state->control.cursor[1] != 360 ||
       !tick(scene, r, audio, (BkInput){.move_x = -1, .move_y = -1}, e) ||
-      state->control.cursor[0] >= 380 || state->control.cursor[1] <= 180) return 0;
+      state->control.cursor[0] >= 760 || state->control.cursor[1] <= 360) return 0;
   return 1;
 }
 int main(int argc, char **argv) {
@@ -121,7 +139,7 @@ int main(int argc, char **argv) {
   BkSavePreviewState state = {.control.tab = 3};
   BkCommonHudState common = {0};
   BkMenuCursor cursor = {0};
-  CHECK(bk_menu_cursor_initialize(&cursor, 640, 480));
+  CHECK(bk_menu_cursor_initialize(&cursor, BK_UI_WIDTH, BK_UI_HEIGHT));
   uint8_t overlay = 0, hover = 0, inventory[5] = {0}, tail[3] = {0};
   uint32_t group = 0, area = 0, random = 123;
   BkSavePreviewGame game = {&group, &area, &random, inventory, tail};
@@ -138,7 +156,10 @@ int main(int argc, char **argv) {
     scene = bk_save_preview_create(&services, files, &state, &bindings, &game,
                                    &ops, 0, e);
     CHECK(scene);
-    if (g == 0) CHECK(persistent_pointer(scene, renderer, audio, &state, &cursor, e));
+    if (g == 0) {
+      CHECK(resize_menu(scene, renderer, audio, &state, &cursor, e));
+      CHECK(persistent_pointer(scene, renderer, audio, &state, &cursor, e));
+    }
     for (unsigned i = 0; i < 8; ++i)
       CHECK(tick(scene, renderer, audio, (BkInput){0}, e));
     for (unsigned pass = 0; pass < 2; ++pass)

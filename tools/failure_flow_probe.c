@@ -162,6 +162,15 @@ int main(int argc, char **argv) {
     REQUIRE(bk_play_session_state(scene)->interaction.outcome == 0);
     for (i = 0; i < 90; ++i)
       REQUIRE(tick(scene, renderer, audio, (BkInput){0}, error));
+    const unsigned sizes[][2] = {{640,480},{1600,900},{1280,720}};
+    for (unsigned k=0;k<sizeof(sizes)/sizeof(*sizes);++k) {
+      BkCommonHudState frozen=*bk_play_session_common(scene);
+      REQUIRE(bk_renderer_resize(renderer,sizes[k][0],sizes[k][1],error) &&
+              bk_scene_resize(scene,sizes[k][0],sizes[k][1],error) &&
+              present(scene,renderer,audio,error));
+      REQUIRE(!memcmp(&frozen,bk_play_session_common(scene),sizeof(frozen)));
+      REQUIRE(tick(scene,renderer,audio,(BkInput){0},error));
+    }
     REQUIRE(tick(scene, renderer, audio,
                  (BkInput){.pressed = BK_BUTTON_CONFIRM}, error));
     for (i = 0; i < 90; ++i)

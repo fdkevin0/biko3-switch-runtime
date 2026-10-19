@@ -1,3 +1,4 @@
+#include "ui/canvas.h"
 #include "scene/title_menu_render.h"
 #include <math.h>
 #include <stdlib.h>
@@ -78,10 +79,8 @@ int bk_title_menu_render_prepare(BkTitleMenuRender *r,
   if (!r || !f || !width || !height || f->count > BK_TITLE_DRAWS)
     return fail(e, "invalid frame/extent");
   r->ready = 0;
-  unsigned tw, th;
-  bk_renderer_extent(r->renderer, &tw, &th);
-  if (width > tw || height > th)
-    return fail(e, "viewport exceeds target");
+  if (!bk_ui_extent(width, height))
+    return fail(e, "invalid logical canvas extent");
   for (unsigned i = 0; i < f->count; ++i) {
     const BkTitleMenuDraw *d = &f->draws[i];
     const float *q = d->corners;
