@@ -39,7 +39,21 @@ brew install cmake sdl3 molten-vk vulkan-loader vulkan-headers glslang
 2. 以 `-DBK_NATIVE_WINDOW=ON -DBK_BUILD_TESTS=OFF` 配置 `build-macos/`；
 3. 链接 Vulkan loader（运行时经 MoltenVK ICD 分发到 Metal），输出 `build-macos/biko3`（即 `biko3-preview` 目标）。
 
-可选环境变量：
+可选### 菜单栏
+
+macOS 原生菜单栏（`显示`）提供运行时开关，状态写入 `settings.cfg`：
+
+| 菜单项 | 快捷键 | 作用 |
+| --- | --- | --- |
+| 显示 FPS | `Cmd+1` | 原版 FPS 覆盖层 |
+| 操作说明 | `Cmd+2` | 左侧操作说明 |
+| 反转视角 | `Cmd+3` | 反转鼠标/右摇杆上下视角 |
+| 全屏 | `Cmd+Ctrl+F` | 全屏/窗口切换 |
+| 帧率上限 | — | 30 / 60 / 120 / 跟随显示器 |
+
+`F1`/`F2` 仍可直接切换 FPS/操作说明，菜单勾选状态会同步。
+
+环境变量：
 
 | 变量 | 作用 |
 | --- | --- |
@@ -116,6 +130,20 @@ Vulkan swapchain/帧缓冲。画面按原版 **4:3** 居中；在 16:9 窗口/�
 ├── captures/
 └── album/
 ```
+
+### 菜单栏
+
+macOS 原生菜单栏（`显示`）提供运行时开关，状态写入 `settings.cfg`：
+
+| 菜单项 | 快捷键 | 作用 |
+| --- | --- | --- |
+| 显示 FPS | `Cmd+1` | 原版 FPS 覆盖层 |
+| 操作说明 | `Cmd+2` | 左侧操作说明 |
+| 反转视角 | `Cmd+3` | 反转鼠标/右摇杆上下视角 |
+| 全屏 | `Cmd+Ctrl+F` | 全屏/窗口切换 |
+| 帧率上限 | — | 30 / 60 / 120 / 跟随显示器 |
+
+`F1`/`F2` 仍可直接切换 FPS/操作说明，菜单勾选状态会同步。
 
 环境变量：
 

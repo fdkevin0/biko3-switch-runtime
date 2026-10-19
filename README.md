@@ -86,7 +86,8 @@ brew install cmake sdl3 molten-vk vulkan-loader vulkan-headers glslang
 
 默认 960×720（4:3）窗口，可拖动缩放；`F11` 或 `Cmd+Ctrl+F` 运行时切换全屏，
 `settings.cfg` 可设置窗口尺寸、帮助/FPS 显示、`fps_cap`（默认 60；0 跟随
-显示器）。`F1`/`F2` 分别切换 FPS/操作说明。默认数据目录
+显示器）。macOS 菜单栏的「显示」可切换 FPS、操作说明、反转视角、全屏和帧率
+上限；`F1`/`F2` 仍可直接切换 FPS/操作说明。默认数据目录
 `~/Library/Application Support/Biko3/game`（包含 `Data/`，可选
 `patch.pp`），存档/照片写入 `~/Library/Application
 Support/Biko3/{save,captures,album}`。打包：
@@ -98,7 +99,8 @@ Support/Biko3/{save,captures,album}`。打包：
 构建、运行、MoltenVK 排障和当前验证范围见
 [macOS 原生运行](docs/macos-native.md)；第一批桌面体验设置（窗口/首次数据目录/
 操作提示/FPS/焦点暂停）见[macOS 体验记录](reports/macos-experience.md)；第二批
-运行时全屏/resize/帧率上限见[P1 记录](reports/macos-experience-p1.md)。
+运行时全屏/resize/帧率上限见[P1 记录](reports/macos-experience-p1.md)；macOS
+原生菜单栏见[菜单栏记录](reports/macos-menu.md)。
 游戏数据不进入 app 或源码包。
 
 ## 构建

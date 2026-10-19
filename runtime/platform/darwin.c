@@ -1,4 +1,5 @@
 #include "platform/platform.h"
+#include "platform/darwin_menu.h"
 #include "core/settings.h"
 #include "render/window_surface.h"
 #include <SDL3/SDL.h>
@@ -54,6 +55,7 @@ struct BkPlatform {
   unsigned pending_width, pending_height;
   unsigned debug_pointer_events;
   BkSettings settings;
+  BkDarwinMenu *menu;
   char root[PATH_MAX];
   char game[PATH_MAX];
 };
@@ -222,6 +224,70 @@ static float axis_value(SDL_Gamepad *pad, SDL_GamepadAxis axis) {
 }
 
 static void save_window_settings(BkPlatform *p);
+static void toggle_fullscreen(BkPlatform *p);
+
+static void menu_sync(BkPlatform *p) {
+  if (!p || !p->menu)
+    return;
+  bk_darwin_menu_sync(p->menu, p->settings.show_fps, p->settings.show_help,
+                      p->settings.invert_look, !p->settings.windowed,
+                      p->settings.fps_cap);
+}
+
+static void save_menu_settings(BkPlatform *p) {
+  if (!p || !p->root[0])
+    return;
+  BkSettings settings;
+  char error[256] = {0};
+  if (!bk_settings_load(&settings, p->root, error))
+    bk_settings_defaults(&settings);
+  settings.show_fps = p->settings.show_fps;
+  settings.show_help = p->settings.show_help;
+  settings.invert_look = p->settings.invert_look;
+  settings.fps_cap = p->settings.fps_cap;
+  if (!bk_settings_save(&settings, p->root, error))
+    fprintf(stderr, "Settings: cannot save menu state: %s\n", error);
+}
+
+static void menu_action(void *context, BkMenuAction action) {
+  BkPlatform *p = context;
+  if (!p)
+    return;
+  switch (action) {
+  case BK_MENU_TOGGLE_FPS:
+    p->settings.show_fps = !p->settings.show_fps;
+    break;
+  case BK_MENU_TOGGLE_HELP:
+    p->settings.show_help = !p->settings.show_help;
+    break;
+  case BK_MENU_TOGGLE_INVERT_LOOK:
+    p->settings.invert_look = !p->settings.invert_look;
+    break;
+  case BK_MENU_TOGGLE_FULLSCREEN:
+    toggle_fullscreen(p);
+    menu_sync(p);
+    return;
+  case BK_MENU_FPS_CAP_30:
+    p->settings.fps_cap = 30;
+    break;
+  case BK_MENU_FPS_CAP_60:
+    p->settings.fps_cap = 60;
+    break;
+  case BK_MENU_FPS_CAP_120:
+    p->settings.fps_cap = 120;
+    break;
+  case BK_MENU_FPS_CAP_DISPLAY:
+    p->settings.fps_cap = 0;
+    break;
+  default:
+    return;
+  }
+  save_menu_settings(p);
+  menu_sync(p);
+  fprintf(stderr, "Menu: fps=%d help=%d invert=%d cap=%d\n",
+          p->settings.show_fps, p->settings.show_help,
+          p->settings.invert_look, p->settings.fps_cap);
+}
 
 static void update_drawable(BkPlatform *p) {
   int width = 0, height = 0;
@@ -285,6 +351,7 @@ static void toggle_fullscreen(BkPlatform *p) {
   }
   p->window_override = 0; /* An explicit F11 choice becomes the saved state. */
   save_window_settings(p);
+  menu_sync(p);
 }
 
 static void poll_events(BkPlatform *p) {
@@ -642,6 +709,11 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
           p->width, p->height,
           (SDL_GetWindowFlags(p->window) & SDL_WINDOW_FULLSCREEN) != 0,
           windowed, settings_error[0] ? "defaults" : "settings.cfg", p->game);
+  p->menu = bk_darwin_menu_create(p, menu_action);
+  if (!p->menu)
+    fprintf(stderr, "Menu: native menu bar unavailable\n");
+  else
+    menu_sync(p);
   return p;
 failed:
   bk_platform_close(p);
@@ -808,6 +880,30 @@ int bk_platform_take_resize(BkPlatform *p, unsigned *width, unsigned *height) {
   return 1;
 }
 
+void bk_platform_ui_state(const BkPlatform *p, BkPlatformUiState *out) {
+  if (!out)
+    return;
+  *out = (BkPlatformUiState){0};
+  if (!p)
+    return;
+  out->show_fps = p->settings.show_fps;
+  out->show_help = p->settings.show_help;
+  out->invert_look = p->settings.invert_look;
+  out->fullscreen = !p->settings.windowed;
+  out->fps_cap = p->settings.fps_cap;
+}
+
+void bk_platform_set_ui_state(BkPlatform *p, int show_fps, int show_help,
+                              int fps_cap) {
+  if (!p)
+    return;
+  p->settings.show_fps = show_fps != 0;
+  p->settings.show_help = show_help != 0;
+  if (fps_cap >= 30 || fps_cap == 0)
+    p->settings.fps_cap = fps_cap;
+  menu_sync(p);
+}
+
 double bk_platform_seconds(BkPlatform *p) {
   (void)p;
   struct timespec ts;
@@ -902,6 +998,8 @@ void bk_platform_close(BkPlatform *p) {
   if (!p)
     return;
   save_window_settings(p);
+  bk_darwin_menu_destroy(p->menu);
+  p->menu = NULL;
   SDL_EnableScreenSaver();
   close_gamepads(p);
   if (p->window)

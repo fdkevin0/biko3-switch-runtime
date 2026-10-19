@@ -313,6 +313,9 @@ int bk_application_run(int argc, char **argv) {
           settings_error[0] ? " fallback" : "", settings.windowed,
           settings.width, settings.height, show_help, show_fps,
           show_dev_overlay, fps_cap);
+#ifdef __APPLE__
+  bk_platform_set_ui_state(platform, show_fps, show_help, fps_cap);
+#endif
   resources = bk_resources_create(error);
   if (!resources)
     goto done;
@@ -424,6 +427,24 @@ int bk_application_run(int argc, char **argv) {
               resize_height, actual_width, actual_height);
       fflush(log);
     }
+    BkPlatformUiState ui_state;
+    bk_platform_ui_state(platform, &ui_state);
+    if (ui_state.show_fps != show_fps) {
+      show_fps = ui_state.show_fps;
+      fprintf(log, "Menu: FPS counter: %s\n", show_fps ? "on" : "off");
+      fflush(log);
+    }
+    if (ui_state.show_help != show_help) {
+      show_help = ui_state.show_help;
+      fprintf(log, "Menu: control help: %s\n", show_help ? "on" : "off");
+      fflush(log);
+    }
+    if (ui_state.fps_cap != fps_cap) {
+      fps_cap = ui_state.fps_cap;
+      fprintf(log, "Menu: frame cap: %d%s\n", fps_cap,
+              fps_cap ? "fps" : " (display)");
+      fflush(log);
+    }
     if (!bk_platform_focused(platform)) {
       bk_platform_idle(platform, 16);
       continue;
@@ -433,12 +454,18 @@ int bk_application_run(int argc, char **argv) {
       show_fps = !show_fps;
       save_ui_settings(config.capture_root, log, show_fps, show_help,
                        show_dev_overlay);
+#ifdef __APPLE__
+      bk_platform_set_ui_state(platform, show_fps, show_help, fps_cap);
+#endif
       fprintf(log, "Original FPS counter: %s\n", show_fps ? "on" : "off");
     }
     if (sample.pressed & BK_BUTTON_HELP) {
       show_help = !show_help;
       save_ui_settings(config.capture_root, log, show_fps, show_help,
                        show_dev_overlay);
+#ifdef __APPLE__
+      bk_platform_set_ui_state(platform, show_fps, show_help, fps_cap);
+#endif
       fprintf(log, "Control help: %s\n", show_help ? "on" : "off");
     }
     /* Handle these global edges once per poll, outside the simulation gate. */

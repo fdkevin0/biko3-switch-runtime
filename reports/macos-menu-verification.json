@@ -1,0 +1,21 @@
+{
+  "feature": "macOS native menu bar toggles",
+  "items": [
+    "show FPS",
+    "show control help",
+    "invert look",
+    "fullscreen",
+    "frame cap 30/60/120/display"
+  ],
+  "persistence": "settings.cfg",
+  "checks": [
+    "Linux biko3-preview builds with menu state integration",
+    "macOS darwin.c and application.c pass -Wall -Wextra -Werror syntax checks",
+    "darwin_menu.m passes clang -fobjc-arc syntax check with Cocoa declaration stubs"
+  ],
+  "not_verified": [
+    "real AppKit main-menu installation and menu click actions",
+    "Cocoa framework linking in the macOS build",
+    "menu shortcut dispatch while SDL3 owns the event loop"
+  ]
+}

@@ -30,6 +30,14 @@ int bk_platform_focused(const BkPlatform *platform);
 void bk_platform_idle(BkPlatform *platform, unsigned milliseconds);
 int bk_platform_take_resize(BkPlatform *platform, unsigned *width,
                             unsigned *height);
+/* macOS menu bar state. The platform owns the persisted settings and the
+ * native menu; the application mirrors the UI-only values it renders. */
+typedef struct {
+  int show_fps, show_help, invert_look, fullscreen, fps_cap;
+} BkPlatformUiState;
+void bk_platform_ui_state(const BkPlatform *platform, BkPlatformUiState *out);
+void bk_platform_set_ui_state(BkPlatform *platform, int show_fps, int show_help,
+                              int fps_cap);
 #endif
 double bk_platform_seconds(BkPlatform *platform);
 /* Actual monotonic wall time, also during deterministic host input replays. */
