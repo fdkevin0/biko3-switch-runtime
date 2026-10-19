@@ -20,7 +20,8 @@ enum {
   BK_BUTTON_SLOW = 1u << 14,
   BK_BUTTON_CAMERA_ORBIT = 1u << 15,
   BK_BUTTON_CAMERA_ADJUST = 1u << 16,
-  BK_BUTTON_FPS = 1u << 17
+  BK_BUTTON_FPS = 1u << 17,
+  BK_BUTTON_HELP = 1u << 18
 };
 typedef struct {
   uint32_t held, pressed, released;

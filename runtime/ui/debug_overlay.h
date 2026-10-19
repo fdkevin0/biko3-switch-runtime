@@ -3,6 +3,7 @@
 #include "resource/assets.h"
 /* CPU image belongs to the caller; release it with bk_image_free. */
 int bk_debug_banner_create(BkImage *image, char error[256]);
+int bk_debug_banner_blank(BkImage *image, char error[256]);
 int bk_debug_banner_lines(BkImage *image, const char *first, const char *second,
                           char error[256]);
 /* Tiny reusable ASCII atlas for the original FPS counter's portable display.

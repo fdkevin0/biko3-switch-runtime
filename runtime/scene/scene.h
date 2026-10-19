@@ -24,6 +24,7 @@ typedef struct {
   BkAudio *audio; /* Borrowed; NULL only for explicitly silent diagnostics. */
   struct BkCaptureFiles *capture_files; /* Borrowed pause-output adapter. */
   const int32_t *audio_volumes; /* Borrowed process voice/BGM/effect values. */
+  int show_dev_overlay; /* Development status banners; off by default on Mac. */
 } BkSceneServices;
 typedef struct {
   BkClockFrame clock;

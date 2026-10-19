@@ -1,7 +1,9 @@
 #include "platform/platform.h"
+#include "core/settings.h"
 #include "render/window_surface.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
+#include <SDL3/SDL_dialog.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
@@ -46,7 +48,9 @@ struct BkPlatform {
   int touch_active;
   int quit;
   int audio_ready;
+  int focused;
   unsigned debug_pointer_events;
+  BkSettings settings;
   char root[PATH_MAX];
   char game[PATH_MAX];
 };
@@ -221,6 +225,12 @@ static void poll_events(BkPlatform *p) {
     case SDL_EVENT_QUIT:
       p->quit = 1;
       break;
+    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+      p->focused = 1;
+      break;
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+      p->focused = 0;
+      break;
     case SDL_EVENT_GAMEPAD_ADDED:
       add_gamepad(p, event.gdevice.which);
       break;
@@ -267,6 +277,78 @@ static void poll_events(BkPlatform *p) {
       break;
     }
   }
+}
+
+static int directory_exists(const char *path) {
+  struct stat info;
+  return path && *path && stat(path, &info) == 0 && S_ISDIR(info.st_mode);
+}
+
+static int game_root_valid(const char *root) {
+  char data[PATH_MAX];
+  if (!root || !*root ||
+      snprintf(data, sizeof(data), "%s/Data", root) >= (int)sizeof(data))
+    return 0;
+  return directory_exists(data);
+}
+
+typedef struct {
+  int done;
+  char path[PATH_MAX];
+} BkFolderChoice;
+
+static void folder_choice_callback(void *userdata, const char *const *files,
+                                   int filter) {
+  (void)filter;
+  BkFolderChoice *choice = userdata;
+  if (!choice)
+    return;
+  if (files && files[0] && *files[0])
+    snprintf(choice->path, sizeof(choice->path), "%s", files[0]);
+  choice->done = 1;
+}
+
+static int choose_game_folder(BkPlatform *p, char error[256]) {
+  BkFolderChoice choice = {0};
+  SDL_ShowOpenFolderDialog(folder_choice_callback, &choice, NULL,
+                           p->game[0] ? p->game : NULL, false);
+  for (unsigned waited = 0; !choice.done && waited < 120000; ++waited) {
+    SDL_PumpEvents();
+    SDL_Delay(16);
+  }
+  if (!choice.done || !choice.path[0]) {
+    snprintf(error, 256,
+             "game data directory not found; select the folder containing Data/");
+    return 0;
+  }
+  char selected[PATH_MAX];
+  snprintf(selected, sizeof(selected), "%s", choice.path);
+  if (game_root_valid(selected)) {
+    snprintf(p->game, sizeof(p->game), "%s", selected);
+  } else {
+    /* Some users select the Data folder itself; accept its parent. */
+    char parent[PATH_MAX];
+    snprintf(parent, sizeof(parent), "%s", selected);
+    char *slash = strrchr(parent, '/');
+    if (!slash || slash == parent) {
+      snprintf(error, 256, "selected folder does not contain Data/: %.200s",
+               selected);
+      return 0;
+    }
+    *slash = 0;
+    if (!game_root_valid(parent)) {
+      snprintf(error, 256, "selected folder does not contain Data/: %.200s",
+               selected);
+      return 0;
+    }
+    snprintf(p->game, sizeof(p->game), "%s", parent);
+  }
+  snprintf(p->settings.game_path, sizeof(p->settings.game_path), "%s", p->game);
+  if (!bk_settings_save(&p->settings, p->root, error)) {
+    fprintf(stderr, "Settings: cannot remember game path: %s\n", error);
+    error[0] = 0;
+  }
+  return 1;
 }
 
 /* MoltenVK ships an ICD manifest; make sure the Vulkan loader can find it
@@ -339,6 +421,11 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
 
   const char *game = (argc > 1 && argv[1] && argv[1][0] != '-') ? argv[1]
                                                                  : getenv("BIKO3_GAME");
+  int explicit_game = game && *game;
+  if (!game || !*game) {
+    if (p->settings.game_path[0])
+      game = p->settings.game_path;
+  }
   if (!game || !*game) {
     if (snprintf(p->game, sizeof(p->game), "%s/game", p->root) >=
         (int)sizeof(p->game)) {
@@ -350,12 +437,25 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
     snprintf(error, 256, "game directory path too long");
     goto failed;
   }
-  struct stat game_stat;
-  if (stat(p->game, &game_stat) || !S_ISDIR(game_stat.st_mode)) {
-    snprintf(error, 256, "game data directory not found: %.200s", p->game);
-    goto failed;
+  if (!game_root_valid(p->game)) {
+    if (explicit_game) {
+      snprintf(error, 256, "game data directory does not contain Data/: %.200s",
+               p->game);
+      goto failed;
+    }
+    if (!choose_game_folder(p, error))
+      goto failed;
   }
 
+  char settings_error[256] = {0};
+  if (!bk_settings_load(&p->settings, p->root, settings_error)) {
+    bk_settings_defaults(&p->settings);
+    fprintf(stderr, "Settings: %s; using defaults\n", settings_error);
+  }
+  if (getenv("BIKO3_WINDOWED"))
+    p->settings.windowed = 1;
+  if (getenv("BIKO3_FULLSCREEN"))
+    p->settings.windowed = 0;
   configure_vulkan_icd();
   if (!SDL_Vulkan_LoadLibrary(NULL)) {
     snprintf(error, 256, "SDL_Vulkan_LoadLibrary: %s", SDL_GetError());
@@ -375,8 +475,8 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
   p->surface.userdata = p;
 
   SDL_SetHint(SDL_HINT_VIDEO_MAC_FULLSCREEN_SPACES, "1");
-  int windowed = getenv("BIKO3_WINDOWED") != NULL;
-  int width = 1280, height = 720;
+  int windowed = p->settings.windowed;
+  int width = p->settings.width, height = p->settings.height;
   Uint64 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
   if (!windowed) {
     const SDL_DisplayMode *mode =
@@ -404,7 +504,14 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
     SDL_SetWindowFullscreen(p->window, true);
     SDL_SetWindowPosition(p->window, 0, 0);
     SDL_SyncWindow(p->window);
+  } else {
+    SDL_SetWindowPosition(p->window, SDL_WINDOWPOS_CENTERED,
+                          SDL_WINDOWPOS_CENTERED);
   }
+  p->focused = 1;
+  if (!SDL_DisableScreenSaver())
+    fprintf(stderr, "Display: screen-saver suppression unavailable: %s\n",
+            SDL_GetError());
   int pixel_w = 0, pixel_h = 0;
   if (!SDL_GetWindowSizeInPixels(p->window, &pixel_w, &pixel_h) ||
       pixel_w <= 0 || pixel_h <= 0) {
@@ -433,11 +540,13 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
 
   *config = (BkLaunchConfig){
       p->game, NULL, "game", p->audio_ready, p->root,
-      getenv("BK_SHOW_FPS") != NULL};
-  fprintf(stderr, "Display: %ux%u fullscreen-flag=%d; game data: %s\n",
+      p->settings.show_fps || getenv("BK_SHOW_FPS") != NULL};
+  fprintf(stderr,
+          "Display: %ux%u fullscreen-flag=%d; windowed=%d; settings: %s; "
+          "game data: %s\n",
           p->width, p->height,
           (SDL_GetWindowFlags(p->window) & SDL_WINDOW_FULLSCREEN) != 0,
-          p->game);
+          windowed, settings_error[0] ? "defaults" : "settings.cfg", p->game);
   return p;
 failed:
   bk_platform_close(p);
@@ -483,6 +592,8 @@ static uint32_t keyboard_buttons(const bool *keys, float *move_x,
     result |= BK_BUTTON_SLOW;
   if (keys[SDL_SCANCODE_F1])
     result |= BK_BUTTON_FPS;
+  if (keys[SDL_SCANCODE_F2])
+    result |= BK_BUTTON_HELP;
   float x = (keys[SDL_SCANCODE_D] ? 1.0f : 0.0f) -
             (keys[SDL_SCANCODE_A] ? 1.0f : 0.0f);
   float y = (keys[SDL_SCANCODE_W] ? 1.0f : 0.0f) -
@@ -499,6 +610,11 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
   poll_events(p);
   if (p->quit)
     return 0;
+  if (!p->focused) {
+    p->previous_held = 0;
+    *input = (BkInput){0};
+    return 1;
+  }
   if (!p->pad_count)
     open_gamepads(p);
 
@@ -517,6 +633,8 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
     float ly = -axis_value(pad, SDL_GAMEPAD_AXIS_LEFTY);
     float rx = axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTX);
     float ry = -axis_value(pad, SDL_GAMEPAD_AXIS_RIGHTY);
+    if (p->settings.invert_look)
+      ry = -ry;
     if (fabsf(lx) + fabsf(ly) > fabsf(move_x) + fabsf(move_y)) {
       move_x = lx;
       move_y = ly;
@@ -569,6 +687,15 @@ int bk_platform_poll(BkPlatform *p, BkInput *input) {
             input->pressed, input->held, input->pointer_x, input->pointer_y,
             pointer_active);
   return 1;
+}
+
+int bk_platform_focused(const BkPlatform *p) {
+  return p && p->focused;
+}
+
+void bk_platform_idle(BkPlatform *p, unsigned milliseconds) {
+  (void)p;
+  SDL_Delay(milliseconds);
 }
 
 double bk_platform_seconds(BkPlatform *p) {
@@ -641,9 +768,31 @@ void bk_platform_report_error(BkPlatform *p, const char *error) {
                            p ? p->window : NULL);
 }
 
+static void save_window_settings(BkPlatform *p) {
+  if (!p || !p->root[0])
+    return;
+  BkSettings settings;
+  char error[256] = {0};
+  if (!bk_settings_load(&settings, p->root, error))
+    bk_settings_defaults(&settings);
+  settings.windowed = p->settings.windowed;
+  if (p->window && settings.windowed) {
+    int width = 0, height = 0;
+    if (SDL_GetWindowSize(p->window, &width, &height) &&
+        width >= 640 && height >= 480) {
+      settings.width = width;
+      settings.height = height;
+    }
+  }
+  if (!bk_settings_save(&settings, p->root, error))
+    fprintf(stderr, "Settings: cannot save window state: %s\n", error);
+}
+
 void bk_platform_close(BkPlatform *p) {
   if (!p)
     return;
+  save_window_settings(p);
+  SDL_EnableScreenSaver();
   close_gamepads(p);
   if (p->window)
     SDL_DestroyWindow(p->window);

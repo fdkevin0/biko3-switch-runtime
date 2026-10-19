@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-19",
+  "focus": "macOS experience P0: settings, startup window, first-run data picker, help/FPS toggles, focus pause, hidden development overlays",
+  "settings_file": "runtime/core/settings.c",
+  "settings_test": "tests/test_settings.c",
+  "defaults": {
+    "windowed": 1,
+    "width": 1280,
+    "height": 720,
+    "show_help": 0,
+    "show_fps": 0,
+    "show_dev_overlay": 0,
+    "invert_look": 0
+  },
+  "checks": [
+    "settings unit test passes: defaults, round trip, game_path, invalid values, unknown keys, missing file",
+    "Linux host biko3-preview builds against the updated platform/app/scene interfaces",
+    "macOS darwin.c passes SDL3/Vulkan syntax check with -Wall -Wextra -Werror",
+    "offscreen default title has no help, FPS or development overlay",
+    "offscreen settings with help=1/fps=1/dev=1 renders all three",
+    "host replay F1+F2 logs both toggles and persists show_help=1/show_fps=1",
+    "focus-loss skip and screen-saver suppression are compiled but not exercised in a macOS window session"
+  ],
+  "not_yet_implemented": [
+    "runtime fullscreen/window/resolution switch (requires swapchain recreation)",
+    "frame pacing and persistent pipeline cache",
+    "audio device selection and buffer tuning",
+    "universal2 bundling, codesign/notarization and DMG packaging"
+  ],
+  "limitations": [
+    "no real macOS graphical session was available for this batch",
+    "window mode is read at startup; changing it requires a restart",
+    "first-run folder picker was syntax-checked but not exercised on macOS"
+  ]
+}

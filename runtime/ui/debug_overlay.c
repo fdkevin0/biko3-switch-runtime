@@ -66,6 +66,16 @@ static void line(BkImage *im, unsigned x, unsigned y, const char *text) {
       }
   }
 }
+int bk_debug_banner_blank(BkImage *banner, char error[256]) {
+  banner->width = 1;
+  banner->height = 1;
+  banner->rgba = calloc(4, 4);
+  if (!banner->rgba) {
+    snprintf(error, 256, "blank banner allocation failed");
+    return 0;
+  }
+  return 1;
+}
 int bk_debug_banner_create(BkImage *banner, char error[256]) {
   return bk_debug_banner_lines(banner, "BIKO3 - NVK DEVELOPMENT PREVIEW",
                                "A - START FIRST MISSION / PORT IN DEVELOPMENT",

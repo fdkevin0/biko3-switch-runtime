@@ -66,12 +66,34 @@ cmake --build build-macos --parallel 8 --target biko3-preview
 ## 运行
 
 ```sh
-# 窗口模式（首次排错建议）
-BIKO3_WINDOWED=1 ./build-macos/biko3
-
-# 全屏（默认）
+# 默认 1280×720 窗口
 ./build-macos/biko3
+
+# 临时全屏启动（不写配置）
+BIKO3_FULLSCREEN=1 ./build-macos/biko3
 ```
+
+首次启动如果默认的 `~/Library/Application Support/Biko3/game/Data` 不存在，
+会弹出系统文件夹选择器，选择包含 `Data/` 的游戏根目录（选择 `Data` 本身也可），
+路径会写入 `settings.cfg` 的 `game_path`，以后无需再次选择。首次启动还会在
+数据目录生成 `settings.cfg`，窗口模式/尺寸/帮助/FPS 都从这里读取；关闭时会
+保存窗口大小。也可以直接编辑：
+
+```ini
+# ~/Library/Application Support/Biko3/settings.cfg
+windowed=1        # 0 = 全屏，1 = 窗口
+width=1280
+height=720
+show_help=0       # 左侧操作说明，默认关闭；F2 切换
+show_fps=0        # F1 切换
+show_dev_overlay=0
+invert_look=0
+game_path=/path/to/MAINDIR
+```
+
+窗口模式在启动时读取；运行中改配置后重启生效。`F1` 切换 FPS，`F2` 切换
+操作说明；窗口/全屏/尺寸写入 `settings.cfg`，不放在游戏 Data 里。失去焦点
+时会暂停模拟并降低轮询频率，切回后继续。
 
 默认数据目录（`Data/` 的上一级，即原来的 `MAINDIR`）：
 
@@ -85,6 +107,7 @@ BIKO3_WINDOWED=1 ./build-macos/biko3
 
 ```text
 ~/Library/Application Support/Biko3/
+├── settings.cfg
 ├── save/
 ├── captures/
 └── album/
@@ -96,8 +119,10 @@ BIKO3_WINDOWED=1 ./build-macos/biko3
 | --- | --- |
 | `BIKO3_GAME` | 游戏目录（包含 `Data/`）；也可作为第一个命令行参数传入 |
 | `BIKO3_DATA_DIR` | 覆盖用户数据根目录（save/captures/album 的父目录） |
-| `BIKO3_WINDOWED=1` | 1280×720 窗口模式 |
+| `BIKO3_WINDOWED=1` | 强制窗口模式（覆盖 `settings.cfg`） |
+| `BIKO3_FULLSCREEN=1` | 强制全屏（覆盖 `settings.cfg`） |
 | `BK_SHOW_FPS=1` | 启动时显示原版 FPS |
+| `F1` / `F2` | 切换 FPS / 操作说明（自动保存） |
 | `BIKO3_SHOW_SYSTEM_CURSOR=1` | 保留 macOS 系统箭头（默认隐藏，游戏绘制自己的光标） |
 | `BIKO3_INPUT_DEBUG=1` | 打印前 12 次鼠标事件的窗口/像素尺寸与缩放结果 |
 | `VK_ICD_FILENAMES` | 指定 MoltenVK ICD 清单；通常平台层会自动探测 Homebrew 路径 |

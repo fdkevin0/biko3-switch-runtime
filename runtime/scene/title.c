@@ -45,7 +45,9 @@ BkScene *bk_title_create(const BkSceneServices *services, char error[256]) {
   bk_blob_free(&blob);
   scene->title = bk_texture_create(scene->renderer, &image, error);
   bk_image_free(&image);
-  if (!scene->title || !bk_debug_banner_create(&image, error))
+  if (!scene->title ||
+      (services->show_dev_overlay ? !bk_debug_banner_create(&image, error)
+                                  : !bk_debug_banner_blank(&image, error)))
     goto fail;
   scene->overlay = bk_texture_create(scene->renderer, &image, error);
   bk_image_free(&image);

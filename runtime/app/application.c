@@ -3,6 +3,7 @@
 #include "app/play_session.h"
 #include "build_info.h"
 #include "core/game_clock.h"
+#include "core/settings.h"
 #include "platform/audio_output.h"
 #include "platform/platform.h"
 #include "save/capture_file.h"
@@ -15,6 +16,21 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+static void save_ui_settings(const char *root, FILE *log, int show_fps,
+                              int show_help, int show_dev_overlay) {
+  if (!root || !*root)
+    return;
+  BkSettings settings;
+  char error[256] = {0};
+  if (!bk_settings_load(&settings, root, error))
+    bk_settings_defaults(&settings);
+  settings.show_fps = show_fps != 0;
+  settings.show_help = show_help != 0;
+  settings.show_dev_overlay = show_dev_overlay != 0;
+  if (!bk_settings_save(&settings, root, error))
+    fprintf(log ? log : stderr, "Settings: cannot save UI state: %s\n", error);
+}
+
 static BkScene *load_scene(BkSceneKind kind, const BkSceneServices *services,
                            BkCheckpointFiles *save_files,
                            BkUnlockFile *unlock_file, BkRecordFile *record_file, BkVolumeFile *volume_file, const char *root,
@@ -281,6 +297,20 @@ int bk_application_run(int argc, char **argv) {
           "Development build; full mission/save/media flow is incomplete.\n",
           BK_VERSION, BK_MESA_COMMIT);
   fflush(log);
+  BkSettings settings;
+  char settings_error[256] = {0};
+  if (!bk_settings_load(&settings, config.capture_root, settings_error)) {
+    bk_settings_defaults(&settings);
+    fprintf(log, "Settings: %s; using defaults\n", settings_error);
+  }
+  int show_help = settings.show_help != 0;
+  int show_dev_overlay = settings.show_dev_overlay != 0;
+  int show_fps = settings.show_fps != 0 || config.show_fps != 0;
+  fprintf(log,
+          "Settings: settings.cfg%s; windowed=%d %dx%d help=%d fps=%d dev=%d\n",
+          settings_error[0] ? " fallback" : "", settings.windowed,
+          settings.width, settings.height, show_help, show_fps,
+          show_dev_overlay);
   resources = bk_resources_create(error);
   if (!resources)
     goto done;
@@ -326,7 +356,13 @@ int bk_application_run(int argc, char **argv) {
   }
   volume_file = bk_volume_file_create(config.capture_root,error);
   if (!volume_file)goto done;
-  BkSceneServices services = {resources, renderer, log, audio, capture_files, bk_volume_file_values(volume_file)};
+  BkSceneServices services = {resources,
+                              renderer,
+                              log,
+                              audio,
+                              capture_files,
+                              bk_volume_file_values(volume_file),
+                              show_dev_overlay};
   kind = !strcmp(config.scene, "camera-track")
                          ? BK_SCENE_CAMERA_TRACK
                      : !strcmp(config.scene, "actor")  ? BK_SCENE_ACTOR_PREVIEW
@@ -344,7 +380,6 @@ int bk_application_run(int argc, char **argv) {
       renderer, bk_resources_patch_flags(resources) & BK_PATCH_CHINESE, error);
   if (!control_help)
     goto done;
-  int show_fps = config.show_fps != 0;
   fps_overlay = bk_fps_overlay_create(renderer, error);
   if (!fps_overlay)
     goto done;
@@ -375,14 +410,28 @@ int bk_application_run(int argc, char **argv) {
     fprintf(log, "Audio pump: independent thread, priority0x2b,2ms poll; "
                  "cache-flushed PCM.\n");
   while (bk_platform_poll(platform, &sample)) {
+#ifdef __APPLE__
+    if (!bk_platform_focused(platform)) {
+      bk_platform_idle(platform, 16);
+      continue;
+    }
+#endif
     if (sample.pressed & BK_BUTTON_FPS) {
       show_fps = !show_fps;
+      save_ui_settings(config.capture_root, log, show_fps, show_help,
+                       show_dev_overlay);
       fprintf(log, "Original FPS counter: %s\n", show_fps ? "on" : "off");
     }
-    /* Handle this global edge once per poll, outside the simulation gate. */
-    sample.held &= ~BK_BUTTON_FPS;
-    sample.pressed &= ~BK_BUTTON_FPS;
-    sample.released &= ~BK_BUTTON_FPS;
+    if (sample.pressed & BK_BUTTON_HELP) {
+      show_help = !show_help;
+      save_ui_settings(config.capture_root, log, show_fps, show_help,
+                       show_dev_overlay);
+      fprintf(log, "Control help: %s\n", show_help ? "on" : "off");
+    }
+    /* Handle these global edges once per poll, outside the simulation gate. */
+    sample.held &= ~(BK_BUTTON_FPS | BK_BUTTON_HELP);
+    sample.pressed &= ~(BK_BUTTON_FPS | BK_BUTTON_HELP);
+    sample.released &= ~(BK_BUTTON_FPS | BK_BUTTON_HELP);
     if ((sample.pressed & BK_BUTTON_PAUSE) && kind != BK_SCENE_GAME &&
         kind != BK_SCENE_PAUSE_PREVIEW)
       break;
@@ -478,7 +527,8 @@ int bk_application_run(int argc, char **argv) {
     if ((!audio_output && audio && !bk_audio_fill(audio, error)) ||
         !bk_renderer_begin(renderer, error) ||
         !bk_scene_draw(scene, &frame, error) ||
-        !bk_control_help_draw(control_help, help_page(kind, scene), error) ||
+        (show_help &&
+         !bk_control_help_draw(control_help, help_page(kind, scene), error)) ||
         (show_fps &&
          !bk_fps_overlay_draw(fps_overlay, game_clock.fps,
                               kind != BK_SCENE_GAME ||

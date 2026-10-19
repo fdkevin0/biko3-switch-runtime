@@ -166,13 +166,17 @@ BkScene *bk_actor_preview_create(const BkSceneServices *services,
   s->lights = bk_light_set_create(s->renderer, &lighting, error);
   if (!s->lights || !prepare(s, error))
     goto fail;
-  if (!bk_debug_banner_lines(
-          &banner, "BIKO3 - ACTOR ANIMATION / SKIN / FACE - ASSET DIAGNOSTIC",
-          s->audio
-              ? "L MOVE  R STICK LOOK  R VOICE  A RESET  Y OFFICE  B TITLE"
-              : "L MOVE  R LOOK  A CAMERA RESET  Y OFFICE  B TITLE - SILENT",
-          error))
+  if (services->show_dev_overlay) {
+    if (!bk_debug_banner_lines(
+            &banner, "BIKO3 - ACTOR ANIMATION / SKIN / FACE - ASSET DIAGNOSTIC",
+            s->audio
+                ? "L MOVE  R STICK LOOK  R VOICE  A RESET  Y OFFICE  B TITLE"
+                : "L MOVE  R LOOK  A CAMERA RESET  Y OFFICE  B TITLE - SILENT",
+            error))
+      goto fail;
+  } else if (!bk_debug_banner_blank(&banner, error)) {
     goto fail;
+  }
   s->overlay = bk_texture_create(s->renderer, &banner, error);
   bk_image_free(&banner);
   if (!s->overlay)

@@ -22,6 +22,13 @@ FILE *bk_platform_log(BkPlatform *platform);
  * offscreen host replay return NULL so the renderer stays headless. */
 const BkWindowSurface *bk_platform_window_surface(BkPlatform *platform);
 int bk_platform_poll(BkPlatform *platform, BkInput *input);
+#ifdef __APPLE__
+/* macOS only: the render loop can idle instead of simulating while another
+ * application owns the foreground. Declared here so the shared application
+ * code stays readable; the definitions live in platform/darwin.c. */
+int bk_platform_focused(const BkPlatform *platform);
+void bk_platform_idle(BkPlatform *platform, unsigned milliseconds);
+#endif
 double bk_platform_seconds(BkPlatform *platform);
 /* Actual monotonic wall time, also during deterministic host input replays. */
 double bk_platform_performance_seconds(BkPlatform *platform);

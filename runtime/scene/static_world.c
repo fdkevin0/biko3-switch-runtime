@@ -261,16 +261,20 @@ static BkScene *create(const BkSceneServices *services, int clip_camera,
   s->white = bk_texture_create(s->renderer, &solid, error);
   if (!s->white)
     goto fail;
-  if (!bk_debug_banner_lines(
-          &image,
-          clip_camera ? "BIKO3 - XAN CAMERA CLIP - ACTOR BINDING PENDING"
-                      : "BIKO3 - ORIGINAL LENS 4:3 - INSPECTION CAMERA",
-          clip_camera
-              ? "A RESTART  X INSPECTION  Y ACTOR  B TITLE - ASSET DIAGNOSTIC"
-              : "L MOVE  R LOOK  A RESET  X CAMERA CLIP  Y ACTOR  B TITLE - NO "
-                "GAMEPLAY",
-          error))
+  if (services->show_dev_overlay) {
+    if (!bk_debug_banner_lines(
+            &image,
+            clip_camera ? "BIKO3 - XAN CAMERA CLIP - ACTOR BINDING PENDING"
+                        : "BIKO3 - ORIGINAL LENS 4:3 - INSPECTION CAMERA",
+            clip_camera
+                ? "A RESTART  X INSPECTION  Y ACTOR  B TITLE - ASSET DIAGNOSTIC"
+                : "L MOVE  R LOOK  A RESET  X CAMERA CLIP  Y ACTOR  B TITLE - NO "
+                  "GAMEPLAY",
+            error))
+      goto fail;
+  } else if (!bk_debug_banner_blank(&image, error)) {
     goto fail;
+  }
   s->overlay = bk_texture_create(s->renderer, &image, error);
   bk_image_free(&image);
   if (!s->overlay)
