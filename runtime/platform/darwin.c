@@ -49,6 +49,8 @@ struct BkPlatform {
   int quit;
   int audio_ready;
   int focused;
+  int resize_pending;
+  unsigned pending_width, pending_height;
   unsigned debug_pointer_events;
   BkSettings settings;
   char root[PATH_MAX];
@@ -218,6 +220,55 @@ static float axis_value(SDL_Gamepad *pad, SDL_GamepadAxis axis) {
   return 0;
 }
 
+static void save_window_settings(BkPlatform *p);
+
+static void update_drawable(BkPlatform *p) {
+  int width = 0, height = 0;
+  if (!p->window ||
+      !SDL_GetWindowSizeInPixels(p->window, &width, &height) ||
+      width <= 0 || height <= 0)
+    return;
+  if ((unsigned)width != p->width || (unsigned)height != p->height) {
+    p->width = (unsigned)width;
+    p->height = (unsigned)height;
+    p->surface.width = p->width;
+    p->surface.height = p->height;
+    p->pending_width = p->width;
+    p->pending_height = p->height;
+    p->resize_pending = 1;
+  }
+}
+
+static void toggle_fullscreen(BkPlatform *p) {
+  if (!p || !p->window)
+    return;
+  int fullscreen =
+      (SDL_GetWindowFlags(p->window) & SDL_WINDOW_FULLSCREEN) != 0;
+  if (fullscreen) {
+    SDL_SetWindowFullscreen(p->window, false);
+    SDL_SetWindowBordered(p->window, true);
+    SDL_SetWindowSize(p->window, p->settings.width, p->settings.height);
+    SDL_SetWindowPosition(p->window, SDL_WINDOWPOS_CENTERED,
+                          SDL_WINDOWPOS_CENTERED);
+    p->settings.windowed = 1;
+  } else {
+    int width = 0, height = 0;
+    if (SDL_GetWindowSize(p->window, &width, &height) && width >= 640 &&
+        height >= 480) {
+      p->settings.width = width;
+      p->settings.height = height;
+    }
+    SDL_SetWindowBordered(p->window, false);
+    SDL_SetWindowFullscreen(p->window, true);
+    p->settings.windowed = 0;
+  }
+  SDL_SyncWindow(p->window);
+  update_drawable(p);
+  save_window_settings(p);
+  fprintf(stderr, "Display: fullscreen %s\n",
+          p->settings.windowed ? "off" : "on");
+}
+
 static void poll_events(BkPlatform *p) {
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
@@ -231,6 +282,25 @@ static void poll_events(BkPlatform *p) {
     case SDL_EVENT_WINDOW_FOCUS_LOST:
       p->focused = 0;
       break;
+    case SDL_EVENT_WINDOW_RESIZED:
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+    case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
+    case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
+    case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
+      update_drawable(p);
+      break;
+    case SDL_EVENT_KEY_DOWN: {
+      bool shortcut = event.key.key == SDLK_F11;
+#ifdef SDL_KMOD_GUI
+      if (event.key.key == SDLK_F &&
+          (event.key.mod & SDL_KMOD_GUI) &&
+          (event.key.mod & SDL_KMOD_CTRL))
+        shortcut = true;
+#endif
+      if (shortcut)
+        toggle_fullscreen(p);
+      break;
+    }
     case SDL_EVENT_GAMEPAD_ADDED:
       add_gamepad(p, event.gdevice.which);
       break;
@@ -478,6 +548,8 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
   int windowed = p->settings.windowed;
   int width = p->settings.width, height = p->settings.height;
   Uint64 flags = SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+  if (windowed)
+    flags |= SDL_WINDOW_RESIZABLE;
   if (!windowed) {
     const SDL_DisplayMode *mode =
         SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
@@ -505,6 +577,7 @@ BkPlatform *bk_platform_open(int argc, char **argv, BkLaunchConfig *config,
     SDL_SetWindowPosition(p->window, 0, 0);
     SDL_SyncWindow(p->window);
   } else {
+    SDL_SetWindowMinimumSize(p->window, 640, 480);
     SDL_SetWindowPosition(p->window, SDL_WINDOWPOS_CENTERED,
                           SDL_WINDOWPOS_CENTERED);
   }
@@ -696,6 +769,15 @@ int bk_platform_focused(const BkPlatform *p) {
 void bk_platform_idle(BkPlatform *p, unsigned milliseconds) {
   (void)p;
   SDL_Delay(milliseconds);
+}
+
+int bk_platform_take_resize(BkPlatform *p, unsigned *width, unsigned *height) {
+  if (!p || !width || !height || !p->resize_pending)
+    return 0;
+  *width = p->pending_width;
+  *height = p->pending_height;
+  p->resize_pending = 0;
+  return 1;
 }
 
 double bk_platform_seconds(BkPlatform *p) {

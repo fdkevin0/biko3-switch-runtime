@@ -29,7 +29,8 @@ int main(void) {
   bk_settings_defaults(&settings);
   CHECK(settings.windowed == 1 && settings.width == 1280 &&
         settings.height == 720 && !settings.show_help &&
-        !settings.show_dev_overlay && !settings.invert_look);
+        !settings.show_dev_overlay && settings.fps_cap == 60 &&
+        !settings.invert_look);
 
   CHECK(bk_settings_load(&settings, root, error));
   CHECK(settings.windowed == 1 && settings.width == 1280);
@@ -40,6 +41,7 @@ int main(void) {
   settings.show_help = 1;
   settings.show_fps = 1;
   settings.show_dev_overlay = 1;
+  settings.fps_cap = 120;
   settings.invert_look = 1;
   snprintf(settings.game_path, sizeof(settings.game_path), "/tmp/example-game");
   CHECK(bk_settings_save(&settings, root, error));
@@ -49,6 +51,7 @@ int main(void) {
   CHECK(bk_settings_load(&loaded, root, error));
   CHECK(!loaded.windowed && loaded.width == 1600 && loaded.height == 900);
   CHECK(loaded.show_help && loaded.show_fps && loaded.show_dev_overlay);
+  CHECK(loaded.fps_cap == 120);
   CHECK(loaded.invert_look);
   CHECK(!strcmp(loaded.game_path, "/tmp/example-game"));
 

@@ -152,6 +152,10 @@ BkRenderer *bk_renderer_create(unsigned width, unsigned height, FILE *log,
  * the final extent follows the surface and may differ from the hint. */
 BkRenderer *bk_renderer_create_window(const BkWindowSurface *window, FILE *log,
                                       char error[256]);
+/* Rebuild swapchain/offscreen attachments after the window drawable size
+ * changed. Must be called outside an active frame; waits for the GPU first. */
+int bk_renderer_resize(BkRenderer *r, unsigned width, unsigned height,
+                       char error[256]);
 void bk_renderer_destroy(BkRenderer *r);
 BkTexture *bk_texture_create(BkRenderer *r, const BkImage *image,
                              char error[256]);

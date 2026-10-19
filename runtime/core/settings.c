@@ -52,6 +52,7 @@ void bk_settings_defaults(BkSettings *settings) {
       .show_help = 0,
       .show_fps = 0,
       .show_dev_overlay = 0,
+      .fps_cap = 60,
       .invert_look = 0,
       .game_path = "",
   };
@@ -106,6 +107,11 @@ int bk_settings_load(BkSettings *settings, const char *root, char error[256]) {
       (void)parse_bool(value, &settings->show_fps);
     } else if (!strcmp(key, "show_dev_overlay")) {
       (void)parse_bool(value, &settings->show_dev_overlay);
+    } else if (!strcmp(key, "fps_cap")) {
+      if (parse_int(value, &settings->fps_cap)) {
+        if (settings->fps_cap != 0)
+          settings->fps_cap = clamp_int(settings->fps_cap, 30, 240);
+      }
     } else if (!strcmp(key, "invert_look")) {
       (void)parse_bool(value, &settings->invert_look);
     } else if (!strcmp(key, "game_path")) {
@@ -153,12 +159,13 @@ int bk_settings_save(const BkSettings *settings, const char *root,
                    "show_help=%d\n"
                    "show_fps=%d\n"
                    "show_dev_overlay=%d\n"
+                   "fps_cap=%d\n"
                    "invert_look=%d\n"
                    "game_path=%s\n",
                    settings->windowed ? 1 : 0, settings->width,
                    settings->height, settings->show_help ? 1 : 0,
                    settings->show_fps ? 1 : 0,
-                   settings->show_dev_overlay ? 1 : 0,
+                   settings->show_dev_overlay ? 1 : 0, settings->fps_cap,
                    settings->invert_look ? 1 : 0, settings->game_path) >= 0;
   if (fclose(stream) != 0)
     ok = 0;

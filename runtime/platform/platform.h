@@ -28,6 +28,8 @@ int bk_platform_poll(BkPlatform *platform, BkInput *input);
  * code stays readable; the definitions live in platform/darwin.c. */
 int bk_platform_focused(const BkPlatform *platform);
 void bk_platform_idle(BkPlatform *platform, unsigned milliseconds);
+int bk_platform_take_resize(BkPlatform *platform, unsigned *width,
+                            unsigned *height);
 #endif
 double bk_platform_seconds(BkPlatform *platform);
 /* Actual monotonic wall time, also during deterministic host input replays. */

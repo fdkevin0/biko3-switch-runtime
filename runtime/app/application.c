@@ -306,11 +306,13 @@ int bk_application_run(int argc, char **argv) {
   int show_help = settings.show_help != 0;
   int show_dev_overlay = settings.show_dev_overlay != 0;
   int show_fps = settings.show_fps != 0 || config.show_fps != 0;
+  int fps_cap = settings.fps_cap;
   fprintf(log,
-          "Settings: settings.cfg%s; windowed=%d %dx%d help=%d fps=%d dev=%d\n",
+          "Settings: settings.cfg%s; windowed=%d %dx%d help=%d fps=%d "
+          "dev=%d cap=%d\n",
           settings_error[0] ? " fallback" : "", settings.windowed,
           settings.width, settings.height, show_help, show_fps,
-          show_dev_overlay);
+          show_dev_overlay, fps_cap);
   resources = bk_resources_create(error);
   if (!resources)
     goto done;
@@ -411,6 +413,10 @@ int bk_application_run(int argc, char **argv) {
                  "cache-flushed PCM.\n");
   while (bk_platform_poll(platform, &sample)) {
 #ifdef __APPLE__
+    unsigned resize_width = 0, resize_height = 0;
+    if (bk_platform_take_resize(platform, &resize_width, &resize_height) &&
+        !bk_renderer_resize(renderer, resize_width, resize_height, error))
+      goto done;
     if (!bk_platform_focused(platform)) {
       bk_platform_idle(platform, 16);
       continue;
@@ -552,6 +558,15 @@ int bk_application_run(int argc, char **argv) {
         !bk_ending_normal_scene_after_present(scene, error))
       goto done;
     double frame_end = bk_platform_performance_seconds(platform);
+#ifdef __APPLE__
+    if (fps_cap > 0) {
+      double budget = 1.0 / fps_cap;
+      double elapsed = frame_end - frame_start;
+      if (elapsed >= 0 && elapsed < budget)
+        bk_platform_idle(platform, (unsigned)((budget - elapsed) * 1000.0));
+      frame_end = bk_platform_performance_seconds(platform);
+    }
+#endif
     update_sum += after_update - frame_start;
     draw_sum += after_draw - after_update;
     end_sum += after_end - after_draw;

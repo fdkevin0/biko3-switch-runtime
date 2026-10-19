@@ -1799,6 +1799,180 @@ int bk_renderer_readback(BkRenderer *r, uint8_t *rgba, size_t n,
 fail:
   return 0;
 }
+int bk_renderer_resize(BkRenderer *r, unsigned width, unsigned height,
+                       char error[256]) {
+  if (!r || !r->device || !width || !height ||
+      width > 16384 || height > 16384) {
+    snprintf(error, 256, "invalid renderer resize");
+    return 0;
+  }
+  if (r->active || r->submitted) {
+    snprintf(error, 256, "renderer resize during active frame");
+    return 0;
+  }
+  if (vkDeviceWaitIdle(r->device) != VK_SUCCESS) {
+    snprintf(error, 256, "cannot idle renderer for resize");
+    return 0;
+  }
+  VkSurfaceFormatKHR *formats = NULL;
+  for (unsigned i = 0; i < MAX_IMAGES; i++) {
+    if (r->frames[i]) {
+      vkDestroyFramebuffer(r->device, r->frames[i], NULL);
+      r->frames[i] = VK_NULL_HANDLE;
+    }
+    if (r->swapchain && r->views[i]) {
+      vkDestroyImageView(r->device, r->views[i], NULL);
+      r->views[i] = VK_NULL_HANDLE;
+    }
+    if (r->finished[i]) {
+      vkDestroySemaphore(r->device, r->finished[i], NULL);
+      r->finished[i] = VK_NULL_HANDLE;
+    }
+  }
+  if (r->swapchain) {
+    vkDestroySwapchainKHR(r->device, r->swapchain, NULL);
+    r->swapchain = VK_NULL_HANDLE;
+  }
+  image_destroy(r, &r->offscreen);
+  image_destroy(r, &r->depth);
+  buffer_destroy(r, &r->readback);
+  r->image_count = 0;
+  r->index = 0;
+  r->width = width;
+  r->height = height;
+  r->active = 0;
+  r->submitted = 0;
+  r->acquire_pending = 0;
+  r->rendered = 0;
+
+  if (r->surface) {
+    VkSurfaceCapabilitiesKHR caps;
+    VK_TRY(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(r->physical, r->surface,
+                                                     &caps));
+    uint32_t n = 0;
+    VK_TRY(
+        vkGetPhysicalDeviceSurfaceFormatsKHR(r->physical, r->surface, &n, NULL));
+    if (!n) {
+      snprintf(error, 256, "no surface formats after resize");
+      goto fail;
+    }
+    formats = calloc(n, sizeof(*formats));
+    if (!formats) {
+      snprintf(error, 256, "resize format allocation failed");
+      goto fail;
+    }
+    VK_TRY(vkGetPhysicalDeviceSurfaceFormatsKHR(r->physical, r->surface, &n,
+                                                formats));
+    VkSurfaceFormatKHR *chosen = NULL;
+    for (uint32_t i = 0; i < n; i++) {
+      if (formats[i].format == r->format) {
+        chosen = &formats[i];
+        break;
+      }
+    }
+    if (!chosen) {
+      snprintf(error, 256, "surface format changed during resize");
+      goto fail;
+    }
+    if (caps.currentExtent.width != UINT32_MAX) {
+      r->width = caps.currentExtent.width;
+      r->height = caps.currentExtent.height;
+    } else {
+      if (r->width < caps.minImageExtent.width)
+        r->width = caps.minImageExtent.width;
+      if (r->width > caps.maxImageExtent.width)
+        r->width = caps.maxImageExtent.width;
+      if (r->height < caps.minImageExtent.height)
+        r->height = caps.minImageExtent.height;
+      if (r->height > caps.maxImageExtent.height)
+        r->height = caps.maxImageExtent.height;
+    }
+    if (!r->width || !r->height) {
+      snprintf(error, 256, "resize produced empty surface extent");
+      goto fail;
+    }
+    uint32_t count = caps.minImageCount < 3 ? 3 : caps.minImageCount;
+    if (caps.maxImageCount && count > caps.maxImageCount)
+      count = caps.maxImageCount;
+    VkSwapchainCreateInfoKHR si = {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = r->surface,
+        .minImageCount = count,
+        .imageFormat = r->format,
+        .imageColorSpace = chosen->colorSpace,
+        .imageExtent = {r->width, r->height},
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .preTransform = caps.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_KHR,
+        .clipped = VK_TRUE};
+    VK_TRY(vkCreateSwapchainKHR(r->device, &si, NULL, &r->swapchain));
+    free(formats);
+    formats = NULL;
+    VK_TRY(vkGetSwapchainImagesKHR(r->device, r->swapchain, &r->image_count,
+                                   NULL));
+    if (r->image_count > MAX_IMAGES) {
+      snprintf(error, 256, "too many swapchain images after resize");
+      goto fail;
+    }
+    VK_TRY(vkGetSwapchainImagesKHR(r->device, r->swapchain, &r->image_count,
+                                   r->images));
+    for (uint32_t i = 0; i < r->image_count; i++) {
+      VkImageViewCreateInfo vi = {
+          .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+          .image = r->images[i],
+          .viewType = VK_IMAGE_VIEW_TYPE_2D,
+          .format = r->format,
+          .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
+      VK_TRY(vkCreateImageView(r->device, &vi, NULL, &r->views[i]));
+    }
+  } else {
+    if (!image_create(r, &r->offscreen, r->width, r->height, r->format,
+                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                      VK_IMAGE_ASPECT_COLOR_BIT, error))
+      goto fail;
+    r->images[0] = r->offscreen.handle;
+    r->views[0] = r->offscreen.view;
+    r->image_count = 1;
+  }
+  if (!buffer_create(r, &r->readback, (VkDeviceSize)r->width * r->height * 4,
+                     VK_BUFFER_USAGE_TRANSFER_DST_BIT, error))
+    goto fail;
+  if (!image_create(r, &r->depth, r->width, r->height, VK_FORMAT_D32_SFLOAT,
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                    VK_IMAGE_ASPECT_DEPTH_BIT, error))
+    goto fail;
+  for (uint32_t i = 0; i < r->image_count; i++) {
+    VkImageView av[] = {r->views[i], r->depth.view};
+    VkFramebufferCreateInfo fi = {
+        .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+        .renderPass = r->pass,
+        .attachmentCount = 2,
+        .pAttachments = av,
+        .width = r->width,
+        .height = r->height,
+        .layers = 1};
+    VK_TRY(vkCreateFramebuffer(r->device, &fi, NULL, &r->frames[i]));
+  }
+  if (r->swapchain) {
+    VkSemaphoreCreateInfo se = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    for (uint32_t i = 0; i < r->image_count; i++)
+      VK_TRY(vkCreateSemaphore(r->device, &se, NULL, &r->finished[i]));
+  }
+  fprintf(r->log, "Renderer resized: %ux%u, %u images\n", r->width, r->height,
+          r->image_count);
+  fflush(r->log);
+  return 1;
+fail:
+  free(formats);
+  return 0;
+}
+
 BkRenderer *bk_renderer_create(unsigned width, unsigned height, FILE *log,
                                char error[256]) {
   return renderer_create(width, height, NULL, log, error);

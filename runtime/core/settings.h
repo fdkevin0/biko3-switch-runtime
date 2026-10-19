@@ -13,6 +13,7 @@ typedef struct {
   int show_help;          /* optional control-help side panels */
   int show_fps;           /* original FPS overlay */
   int show_dev_overlay;   /* diagnostic banner at the bottom */
+  int fps_cap;            /* 0 = display refresh, otherwise 30..240 */
   int invert_look;        /* invert camera Y input */
   char game_path[BK_SETTINGS_PATH_MAX]; /* remembered game root, empty = default */
 } BkSettings;

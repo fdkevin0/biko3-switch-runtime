@@ -81,19 +81,21 @@ BIKO3_FULLSCREEN=1 ./build-macos/biko3
 
 ```ini
 # ~/Library/Application Support/Biko3/settings.cfg
-windowed=1        # 0 = 全屏，1 = 窗口
+windowed=1        # 0 = 启动时全屏，1 = 窗口
 width=1280
 height=720
 show_help=0       # 左侧操作说明，默认关闭；F2 切换
 show_fps=0        # F1 切换
 show_dev_overlay=0
+fps_cap=60        # 0 = 跟随显示器刷新率
 invert_look=0
 game_path=/path/to/MAINDIR
 ```
 
-窗口模式在启动时读取；运行中改配置后重启生效。`F1` 切换 FPS，`F2` 切换
-操作说明；窗口/全屏/尺寸写入 `settings.cfg`，不放在游戏 Data 里。失去焦点
-时会暂停模拟并降低轮询频率，切回后继续。
+窗口可拖动缩放；`F11` 或 `Cmd+Ctrl+F` 运行时切换全屏，窗口尺寸变化会重建
+Vulkan swapchain/帧缓冲。`F1` 切换 FPS，`F2` 切换操作说明；窗口/全屏/尺寸
+写入 `settings.cfg`，不放在游戏 Data 里。`fps_cap` 默认 60，设为 0 跟随显示器
+刷新率。失去焦点时会暂停模拟并降低轮询频率，切回后继续。
 
 默认数据目录（`Data/` 的上一级，即原来的 `MAINDIR`）：
 
@@ -123,6 +125,7 @@ game_path=/path/to/MAINDIR
 | `BIKO3_FULLSCREEN=1` | 强制全屏（覆盖 `settings.cfg`） |
 | `BK_SHOW_FPS=1` | 启动时显示原版 FPS |
 | `F1` / `F2` | 切换 FPS / 操作说明（自动保存） |
+| `F11` / `Cmd+Ctrl+F` | 运行时切换全屏/窗口 |
 | `BIKO3_SHOW_SYSTEM_CURSOR=1` | 保留 macOS 系统箭头（默认隐藏，游戏绘制自己的光标） |
 | `BIKO3_INPUT_DEBUG=1` | 打印前 12 次鼠标事件的窗口/像素尺寸与缩放结果 |
 | `VK_ICD_FILENAMES` | 指定 MoltenVK ICD 清单；通常平台层会自动探测 Homebrew 路径 |

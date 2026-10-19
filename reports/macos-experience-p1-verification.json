@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-19",
+  "focus": "macOS experience P1: runtime fullscreen/window resize with swapchain recreation and 60fps cap",
+  "changes": [
+    "bk_renderer_resize() reconstructs swapchain or offscreen attachments",
+    "darwin tracks SDL resize/fullscreen events and offers F11 / Cmd+Ctrl+F",
+    "application calls renderer resize before drawing",
+    "settings.cfg fps_cap defaults to 60; 0 follows display refresh"
+  ],
+  "checks": [
+    "offscreen renderer resize 64x64 -> 128x96 -> 96x128 and draw/readback passes",
+    "Linux host biko3-preview builds against the new renderer and application interfaces",
+    "macOS darwin.c passes SDL3/Vulkan -Wall -Wextra -Werror syntax check",
+    "settings test covers fps_cap default and round trip"
+  ],
+  "not_verified": [
+    "real macOS native window fullscreen toggle and drag resize",
+    "swapchain recreation on a real Metal/MoltenVK surface",
+    "measured frame pacing on 60Hz/120Hz displays"
+  ],
+  "remaining": [
+    "persistent VkPipelineCache",
+    "audio device selection/buffer",
+    "universal2 and notarized packaging"
+  ]
+}
